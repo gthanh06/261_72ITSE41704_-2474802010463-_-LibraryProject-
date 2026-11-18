@@ -265,7 +265,9 @@ internal class ThemedButton : Button
         var textWidth = hasText ? Draw.TextWidth(Text, Font) : 0;
         var contentWidth = textWidth + (leading != null ? iconSize + (hasText ? gap : 0) : 0);
         var x = Math.Max(0, (Width - contentWidth) / 2);
-        var iconRect = new Rectangle(x, (Height - iconSize) / 2, iconSize, iconSize);
+        // The label sinks one pixel while the button is held, so the press feels physical.
+        var sink = _pressed && Enabled && !_loading ? this.Px(1) : 0;
+        var iconRect = new Rectangle(x, (Height - iconSize) / 2 + sink, iconSize, iconSize);
 
         if (_loading)
         {
@@ -279,7 +281,7 @@ internal class ThemedButton : Button
         if (hasText)
         {
             var textX = leading != null ? iconRect.Right + gap : x;
-            var textRect = new Rectangle(textX, 0, Width - textX, Height);
+            var textRect = new Rectangle(textX, sink, Width - textX, Height);
             TextRenderer.DrawText(g, Text, Font, textRect, fore, Draw.SingleLine | TextFormatFlags.Left);
         }
     }
