@@ -32,6 +32,12 @@ internal class ThemedButton : Button
     private System.Windows.Forms.Timer? _spinner;
     private int _spinnerAngle;
     private bool _compact;
+    private Point _rippleCenter;
+    private float _rippleGrow;
+    private float _rippleFade;
+    private bool _rippleHeld;
+    private Tween? _rippleGrowTween;
+    private Tween? _rippleFadeTween;
 
     public ThemedButton() : this(string.Empty)
     {
@@ -138,6 +144,14 @@ internal class ThemedButton : Button
     {
         if (!_loading)
         {
+            // Keyboard (Enter/Space) and PerformClick get a ripple from the centre; a mouse click already has one.
+            if (!_rippleHeld)
+            {
+                StartRipple(new Point(Width / 2, Height / 2));
+            }
+
+            // Let the ripple fade even if the click opens a modal dialog.
+            ReleaseRipple();
             base.OnClick(e);
         }
     }
@@ -158,6 +172,7 @@ internal class ThemedButton : Button
     {
         base.OnMouseLeave(e);
         _pressed = false;
+        ReleaseRipple();
         SetHover(false);
     }
 
@@ -167,6 +182,7 @@ internal class ThemedButton : Button
         if (mevent.Button == MouseButtons.Left)
         {
             _pressed = true;
+            StartRipple(mevent.Location);
             Invalidate();
         }
     }
@@ -175,6 +191,7 @@ internal class ThemedButton : Button
     {
         base.OnMouseUp(mevent);
         _pressed = false;
+        ReleaseRipple();
         Invalidate();
     }
 
@@ -211,6 +228,8 @@ internal class ThemedButton : Button
             Draw.FillRounded(g, fill, bounds, radius);
         }
 
+        PaintRipple(g, bounds, radius);
+
         if (border.A > 0)
         {
             Draw.StrokeRounded(g, border, 1f, bounds, radius);
@@ -229,6 +248,8 @@ internal class ThemedButton : Button
         if (disposing)
         {
             _hoverTween?.Dispose();
+            _rippleGrowTween?.Dispose();
+            _rippleFadeTween?.Dispose();
             _spinner?.Dispose();
         }
 
@@ -261,6 +282,70 @@ internal class ThemedButton : Button
             var textRect = new Rectangle(textX, 0, Width - textX, Height);
             TextRenderer.DrawText(g, Text, Font, textRect, fore, Draw.SingleLine | TextFormatFlags.Left);
         }
+    }
+
+    /// <summary>
+    /// Material-style ink: a circle that spreads from the pointer while the button is held and fades out
+    /// after the click. Off when animations are off; the pressed colour still shows the press.
+    /// </summary>
+    private void StartRipple(Point center)
+    {
+        if (!Theme.Motion.Enabled || !Enabled || _loading)
+        {
+            return;
+        }
+
+        _rippleCenter = center;
+        _rippleHeld = true;
+        _rippleGrowTween?.Stop();
+        _rippleFadeTween?.Stop();
+        _rippleFade = 1f;
+        _rippleGrowTween = Tween.Run(450, p =>
+        {
+            _rippleGrow = p;
+            Invalidate();
+        }, ease: Easing.OutQuint);
+    }
+
+    private void ReleaseRipple()
+    {
+        if (!_rippleHeld)
+        {
+            return;
+        }
+
+        _rippleHeld = false;
+        var from = _rippleFade;
+        _rippleFadeTween?.Stop();
+        _rippleFadeTween = Tween.Run(400, p =>
+        {
+            _rippleFade = from * (1f - p);
+            Invalidate();
+        });
+    }
+
+    private void PaintRipple(Graphics g, RectangleF bounds, float radius)
+    {
+        if (_rippleFade <= 0f || !Enabled)
+        {
+            return;
+        }
+
+        // Reach the farthest corner so the ink covers the whole button.
+        var dx = Math.Max(_rippleCenter.X, Width - _rippleCenter.X);
+        var dy = Math.Max(_rippleCenter.Y, Height - _rippleCenter.Y);
+        var reach = MathF.Sqrt(dx * dx + dy * dy);
+        var r = reach * (0.12f + 0.88f * _rippleGrow);
+        var onDark = _variant is ButtonVariant.Primary or ButtonVariant.Danger;
+        var ink = onDark ? Color.FromArgb((int)(64 * _rippleFade), Color.White)
+            : Color.FromArgb((int)(40 * _rippleFade), Theme.Colors.Primary);
+
+        using var clip = Draw.RoundedRect(bounds, radius);
+        using var brush = new SolidBrush(ink);
+        var state = g.Save();
+        g.SetClip(clip);
+        g.FillEllipse(brush, _rippleCenter.X - r, _rippleCenter.Y - r, r * 2, r * 2);
+        g.Restore(state);
     }
 
     private void PaintSpinner(Graphics g, Rectangle r, Color color)
