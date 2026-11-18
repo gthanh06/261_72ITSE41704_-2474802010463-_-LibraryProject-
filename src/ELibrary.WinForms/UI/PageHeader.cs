@@ -77,7 +77,7 @@ internal sealed class PageHeader : Panel
         var textWidth = Math.Max(1, Width - Actions.Width - this.Px(Theme.Space.M));
         if (_section != null)
         {
-            TextRenderer.DrawText(g, _section.ToUpperInvariant(), Theme.Fonts.Caption, new Rectangle(0, 0, textWidth, SectionHeight),
+            TextRenderer.DrawText(g, _section, Theme.Fonts.SmallSemibold, new Rectangle(0, 0, textWidth, SectionHeight),
                 Theme.Colors.TextMuted, Draw.SingleLine | TextFormatFlags.NoPadding);
         }
 
@@ -92,7 +92,7 @@ internal sealed class PageHeader : Panel
         }
     }
 
-    private int SectionHeight => _section != null ? TextRenderer.MeasureText("A", Theme.Fonts.Caption).Height : 0;
+    private int SectionHeight => _section != null ? TextRenderer.MeasureText("A", Theme.Fonts.SmallSemibold).Height : 0;
 
     private int TitleTop => _section != null ? SectionHeight + this.Px(4) : 0;
 

@@ -66,12 +66,12 @@ internal sealed class ReportsScreen : ScreenBase
         }
 
         var request = new ReportRequest(Ui.ToDateOnly(_from), Ui.ToDateOnly(_to), (int)_top.Value);
-        Run(() =>
+        _ = RunAsync("report", () => App.Reports.Run(info.Key, request), table =>
         {
-            _table = App.Reports.Run(info.Key, request);
-            ShowTable(_table);
-            SetStatus($"Generated at {Ui.DateTime(_table.GeneratedAt)}.");
-        });
+            _table = table;
+            ShowTable(table);
+            SetStatus($"Generated at {Ui.DateTime(table.GeneratedAt)}.");
+        }, placeholder: _grid);
     }
 
     /// <summary>The report's columns are not known in advance, so the grid is built from the table.</summary>

@@ -3,6 +3,7 @@ using ELibrary.Business.Dtos;
 using ELibrary.Domain.Enums;
 using ELibrary.WinForms.Dialogs;
 using ELibrary.WinForms.Infrastructure;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Screens;
 
@@ -41,6 +42,9 @@ internal sealed class CatalogueScreen : ScreenBase
     private readonly CheckBox _onlyAvailable = new() { Text = "Only available", AutoSize = true, Margin = new Padding(8, 8, 3, 3) };
     private readonly CheckBox _includeInactive = new() { Text = "Include inactive", AutoSize = true, Margin = new Padding(8, 8, 3, 3) };
     private readonly DataGridView _titles = Ui.Grid();
+    private readonly CoverGrid _covers = new() { Dock = DockStyle.Fill, Visible = false };
+    private Button? _viewToggle;
+    private bool _selectingTitle;
     private readonly DataGridView _copies = Ui.Grid();
     private readonly DataGridView _links = Ui.Grid();
     private readonly Label _details = new() { AutoSize = true, MaximumSize = new Size(900, 0), Padding = new Padding(0, 4, 0, 4) };
@@ -66,8 +70,29 @@ internal sealed class CatalogueScreen : ScreenBase
         }
 
         _field.SelectedItem = CatalogueSearchField.All;
-        Ui.OnEnter(_search, Search);
-        _titles.SelectionChanged += (_, _) => LoadDetails();
+        Ui.OnEnter(_search, () => _ = Search());
+        _titles.SelectionChanged += (_, _) =>
+        {
+            if (_selectingTitle)
+            {
+                return; // SelectTitle syncs the covers and loads the details itself
+            }
+
+            _covers.SelectId(Ui.Selected<TitleSummaryDto>(_titles)?.Id);
+            LoadDetails();
+        };
+        // The cover view drives the same table selection, so details and actions work the same in both views.
+        _covers.SelectionChanged += (_, _) =>
+        {
+            if (_covers.SelectedItem is { } item)
+            {
+                SelectTitle(item.Id);
+            }
+        };
+        if (_isLibrarian)
+        {
+            _covers.ItemActivated += (_, _) => EditTitle();
+        }
         _links.CellDoubleClick += (_, _) => OpenLink();
 
         var searchRow = Ui.Row(Ui.Label("Search"), _search, Ui.Label("in"), _field, Ui.Label("Category"), _category, _onlyAvailable);
@@ -76,7 +101,10 @@ internal sealed class CatalogueScreen : ScreenBase
             searchRow.Controls.Add(_includeInactive);
         }
 
-        searchRow.Controls.Add(Ui.Button("Search", Search, 100));
+        searchRow.Controls.Add(Ui.Button("Search", () => _ = Search(), 100));
+        _viewToggle = Ui.Button("Covers", ToggleView, 100);
+        _viewToggle.AccessibleDescription = "Switch between the table and the book cover view";
+        searchRow.Controls.Add(_viewToggle);
 
         var actions = Ui.Row();
         if (_isMember)
@@ -110,6 +138,7 @@ internal sealed class CatalogueScreen : ScreenBase
 
         var split = Ui.Split(Orientation.Horizontal, 0.45);
         split.Panel1.Controls.Add(_titles);
+        split.Panel1.Controls.Add(_covers);
         split.Panel2.Controls.Add(detailPanel);
 
         Compose(split, searchRow);
@@ -120,7 +149,7 @@ internal sealed class CatalogueScreen : ScreenBase
     {
         if (_titles.Rows.Count == 0)
         {
-            Search();
+            _ = Search();
         }
     }
 
@@ -133,11 +162,11 @@ internal sealed class CatalogueScreen : ScreenBase
 
     private void LoadCategories()
     {
-        Run(() =>
+        _ = RunAsync("categories", () => App.Catalogue.GetCategories().ToList(), categories =>
         {
             _category.Items.Clear();
             _category.Items.Add(new LookupDto(0, "(all categories)"));
-            foreach (var category in App.Catalogue.GetCategories())
+            foreach (var category in categories)
             {
                 _category.Items.Add(category);
             }
@@ -146,7 +175,8 @@ internal sealed class CatalogueScreen : ScreenBase
         });
     }
 
-    private void Search()
+    /// <summary>Runs the search in the background; the grid shows a skeleton until the results are in.</summary>
+    private Task<bool> Search()
     {
         var categoryId = (_category.SelectedItem as LookupDto)?.Id;
         var query = new CatalogueQuery(
@@ -156,15 +186,40 @@ internal sealed class CatalogueScreen : ScreenBase
             _onlyAvailable.Checked,
             _includeInactive.Checked);
 
-        Run(() =>
-        {
-            var started = DateTime.Now;
-            var results = App.Catalogue.Search(query);
-            Ui.Fill(_titles, results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
-            var ms = (DateTime.Now - started).TotalMilliseconds;
-            SetStatus($"{results.Count} title(s) found in {ms:0} ms.");
-        });
+        return RunAsync("search",
+            () =>
+            {
+                var timer = Stopwatch.StartNew();
+                var results = App.Catalogue.Search(query);
+                return (Results: results, Ms: timer.ElapsedMilliseconds);
+            },
+            found =>
+            {
+                Ui.Fill(_titles, found.Results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
+                _covers.SetItems(found.Results.Select(ToCover));
+                _covers.SelectId(Ui.Selected<TitleSummaryDto>(_titles)?.Id);
+                SetStatus($"{found.Results.Count} title(s) found in {found.Ms:0} ms.");
+            },
+            placeholder: _covers.Visible ? _covers : _titles);
     }
+
+    /// <summary>Switches the results between the table and the cover wall (same data and selection).</summary>
+    private void ToggleView()
+    {
+        var showCovers = !_covers.Visible;
+        _covers.Visible = showCovers;
+        _titles.Visible = !showCovers;
+        _viewToggle!.Text = showCovers ? "Table" : "Covers";
+        (showCovers ? (Control)_covers : _titles).Focus();
+    }
+
+    private static CoverItem ToCover(TitleSummaryDto t) => new(
+        t.Id,
+        t.Name,
+        t.Authors,
+        !t.IsActive ? "Inactive" : $"{t.AvailableCopies} / {t.TotalCopies} available",
+        !t.IsActive ? Tone.Neutral : t.AvailableCopies > 0 ? Tone.Success : Tone.Warning,
+        !t.IsActive);
 
     private void LoadDetails(int? selectTitleId = null)
     {
@@ -172,6 +227,7 @@ internal sealed class CatalogueScreen : ScreenBase
         var id = selectTitleId ?? selected?.Id;
         if (id == null)
         {
+            CancelLoad("details");
             _current = null;
             _details.Text = string.Empty;
             Ui.Fill(_copies, Array.Empty<CopyDto>(), _copyColumns);
@@ -179,10 +235,11 @@ internal sealed class CatalogueScreen : ScreenBase
             return;
         }
 
-        Run(() =>
+        // Selecting rows quickly starts several loads; only the last one is shown.
+        _ = RunAsync("details", () => App.Catalogue.GetTitleDetails(id.Value), details =>
         {
-            _current = App.Catalogue.GetTitleDetails(id.Value);
-            var d = _current;
+            _current = details;
+            var d = details;
             var lines = new List<string>
             {
                 $"{d.Name}  —  {string.Join(", ", d.Authors)}",
@@ -245,19 +302,20 @@ internal sealed class CatalogueScreen : ScreenBase
         });
     }
 
-    private void NewTitle()
+    private async void NewTitle()
     {
         using var dialog = new TitleEditorDialog(App, null);
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
         {
             SetStatus("The title was created. Add its copies with \"Add copy…\".");
             _search.Text = string.Empty;
-            Search();
-            SelectTitle(dialog.SavedTitleId);
+            var savedId = dialog.SavedTitleId;
+            await Search();
+            SelectTitle(savedId);
         }
     }
 
-    private void EditTitle()
+    private async void EditTitle()
     {
         if (!RequireTitle())
         {
@@ -268,8 +326,9 @@ internal sealed class CatalogueScreen : ScreenBase
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
         {
             SetStatus("The title was saved.");
-            Search();
-            SelectTitle(dialog.SavedTitleId);
+            var savedId = dialog.SavedTitleId;
+            await Search();
+            SelectTitle(savedId);
         }
     }
 
@@ -279,13 +338,26 @@ internal sealed class CatalogueScreen : ScreenBase
         {
             if (row.Tag is TitleSummaryDto t && t.Id == titleId)
             {
-                _titles.CurrentCell = row.Cells[0];
+                // Setting CurrentCell raises SelectionChanged while CurrentRow is still the old row, so the
+                // handler would read the wrong title; sync the covers and details explicitly instead.
+                _selectingTitle = true;
+                try
+                {
+                    _titles.CurrentCell = row.Cells[0];
+                }
+                finally
+                {
+                    _selectingTitle = false;
+                }
+
+                _covers.SelectId(titleId);
+                LoadDetails(titleId);
                 return;
             }
         }
     }
 
-    private void ToggleActive()
+    private async void ToggleActive()
     {
         if (!RequireTitle())
         {
@@ -300,8 +372,9 @@ internal sealed class CatalogueScreen : ScreenBase
         {
             SetStatus(activate ? "The title is active." : "The title was deactivated.");
             _includeInactive.Checked = true;
-            Search();
-            SelectTitle(_current.Id);
+            var titleId = _current.Id;
+            await Search();
+            SelectTitle(titleId);
         }
     }
 

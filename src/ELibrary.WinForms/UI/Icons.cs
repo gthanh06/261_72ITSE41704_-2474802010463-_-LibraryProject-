@@ -44,10 +44,19 @@ internal static class Icons
     public const string Hide = "";
     public const string ChevronLeft = "";
     public const string ChevronRight = "";
+    public const string ChevronUp = "";
+    public const string ChevronDown = "";
 
     // Feedback
     public const string Info = "";
     public const string Warning = "";
     public const string Error = "";
     public const string Success = "";
+
+    // Written as escapes so the private-use characters stay readable in diffs.
+    public const string DarkMode = "\uE708";   // moon
+    public const string LightMode = "\uE706";  // sun
+    public const string Home = "\uE80F";
+    public const string GridView = "\uF0E2";
+    public const string ListView = "\uEA37";
 }

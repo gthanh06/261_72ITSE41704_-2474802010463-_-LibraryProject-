@@ -13,6 +13,7 @@ internal sealed class DimOverlay : Form
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
     private const double TargetOpacity = 0.32;
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, DimOverlay> ByDialog = new();
 
     private DimOverlay(Form owner)
     {
@@ -22,7 +23,6 @@ internal sealed class DimOverlay : Form
         BackColor = Theme.Colors.Overlay;
         Opacity = 0;
         Bounds = owner.Bounds;
-        Enabled = false;
         AccessibleRole = AccessibleRole.None;
     }
 
@@ -51,10 +51,27 @@ internal sealed class DimOverlay : Form
 
         var overlay = new DimOverlay(owner);
         overlay.Show(owner);
+        // Disable it only once shown: WinForms refuses to show a disabled form ("Forms that are not enabled
+        // cannot be displayed…"), which made every dialog raise an error. Disabled, it takes no input.
+        overlay.Enabled = false;
         // Keep the overlay directly below the dialog in the z-order.
         SetWindowPos(overlay.Handle, dialog.Handle, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
         Tween.Run(Theme.Motion.NormalMs, p => overlay.Opacity = TargetOpacity * p);
-        dialog.FormClosed += (_, _) => overlay.Close();
+        ByDialog.AddOrUpdate(dialog, overlay);
+        dialog.FormClosed += (_, _) =>
+        {
+            ByDialog.Remove(dialog);
+            overlay.Close();
+        };
+    }
+
+    /// <summary>Fades the overlay of <paramref name="dialog"/> (1 = fully dimmed, 0 = gone), e.g. while the dialog closes.</summary>
+    public static void SetVisibility(Form dialog, float visible)
+    {
+        if (ByDialog.TryGetValue(dialog, out var overlay) && !overlay.IsDisposed)
+        {
+            overlay.Opacity = TargetOpacity * Math.Clamp(visible, 0f, 1f);
+        }
     }
 
     [DllImport("user32.dll")]

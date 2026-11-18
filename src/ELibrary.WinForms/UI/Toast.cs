@@ -32,7 +32,7 @@ internal static class Toasts
         public ToastStack(Form form)
         {
             _form = form;
-            _form.Resize += (_, _) => Arrange(animate: false);
+            _form.Resize += (_, _) => Arrange(animate: false, entering: null);
         }
 
         public void Push(Toast toast)
@@ -46,7 +46,7 @@ internal static class Toasts
             _toasts.Add(toast);
             _form.Controls.Add(toast);
             toast.BringToFront();
-            Arrange(animate: true);
+            Arrange(animate: true, entering: toast);
             toast.Announce();
         }
 
@@ -56,11 +56,12 @@ internal static class Toasts
             {
                 _form.Controls.Remove(toast);
                 toast.Dispose();
-                Arrange(animate: false);
+                // The toasts above slide down into the gap.
+                Arrange(animate: true, entering: null);
             }
         }
 
-        private void Arrange(bool animate)
+        private void Arrange(bool animate, Toast? entering)
         {
             var margin = _form.Px(Theme.Space.L);
             var bottom = _form.ClientSize.Height - margin;
@@ -69,13 +70,13 @@ internal static class Toasts
                 var toast = _toasts[i];
                 var target = new Point(_form.ClientSize.Width - toast.Width - margin, bottom - toast.Height);
                 bottom = target.Y - _form.Px(Theme.Space.S);
-                if (animate && i == _toasts.Count - 1)
+                if (animate && toast == entering)
                 {
                     toast.SlideIn(target);
                 }
                 else
                 {
-                    toast.Location = target;
+                    toast.MoveTo(target, animate);
                 }
             }
         }
@@ -89,6 +90,7 @@ internal sealed class Toast : Control
     private readonly string? _message;
     private readonly System.Windows.Forms.Timer _life;
     private Tween? _slide;
+    private Tween? _move;
     private bool _closing;
 
     public Toast(Tone tone, string title, string? message)
@@ -117,7 +119,32 @@ internal sealed class Toast : Control
         var startX = target.X + this.Px(40);
         Location = new Point(startX, target.Y);
         _slide?.Stop();
-        _slide = Tween.Run(Theme.Motion.NormalMs, p => Left = (int)(startX + (target.X - startX) * p));
+        _slide = Tween.Run(Theme.Motion.NormalMs, p => Left = (int)(startX + (target.X - startX) * p), ease: Easing.OutQuint);
+    }
+
+    /// <summary>Moves to a new place in the stack (smoothly when <paramref name="animate"/> is set).</summary>
+    public void MoveTo(Point target, bool animate)
+    {
+        _move?.Stop();
+        if (_closing)
+        {
+            return; // it is sliding out; leave it where it is
+        }
+
+        // Only the vertical position is animated: the horizontal one may be owned by a running slide-in.
+        if (_slide is not { IsRunning: true })
+        {
+            Left = target.X;
+        }
+
+        if (!animate || Top == target.Y)
+        {
+            Top = target.Y;
+            return;
+        }
+
+        var fromY = Top;
+        _move = Tween.Run(Theme.Motion.NormalMs + 40, p => Top = (int)Math.Round(fromY + (target.Y - fromY) * p));
     }
 
     public void Announce()
@@ -141,7 +168,7 @@ internal sealed class Toast : Control
         _slide?.Stop();
         var startX = Left;
         _slide = Tween.Run(Theme.Motion.FastMs, p => Left = startX + (int)(this.Px(60) * p),
-            () => Dismissed?.Invoke(this, EventArgs.Empty));
+            () => Dismissed?.Invoke(this, EventArgs.Empty), Easing.InOutCubic);
     }
 
     protected override void OnMouseEnter(EventArgs e)
@@ -215,6 +242,7 @@ internal sealed class Toast : Control
         {
             _life.Dispose();
             _slide?.Dispose();
+            _move?.Dispose();
         }
 
         base.Dispose(disposing);

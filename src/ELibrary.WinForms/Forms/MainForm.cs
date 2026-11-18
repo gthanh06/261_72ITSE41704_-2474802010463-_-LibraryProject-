@@ -22,6 +22,7 @@ internal sealed class MainForm : Form
     private readonly Dictionary<Keys, Action> _shortcuts = new();
     private readonly Dictionary<string, string> _sections = new();
     private EmptyState? _noScreen;
+    private ScreenTransition? _transition;
     private string? _currentKey;
     private bool? _narrow;
 
@@ -36,6 +37,8 @@ internal sealed class MainForm : Form
         Font = Theme.Fonts.Body;
         BackColor = Theme.Colors.Background;
         _content.BackColor = Theme.Colors.Background;
+        WindowChrome.Apply(this, Theme.Colors.Background);
+        AntiFlicker.CompositeWhileResizing(this);
 
         BuildNavigation(user.Role);
         _sidebar.SetUser(user.FullName, user.Username, $"{user.Role} · {Ui.Date(app.Clock.Today)}");
@@ -74,7 +77,9 @@ internal sealed class MainForm : Form
 
     private void BuildNavigation(RoleCode role)
     {
-        AddGroup("Library", ScreenItem("catalogue", "Catalogue", Icons.Library, Keys.Control | Keys.F, () => new CatalogueScreen(_app)));
+        AddGroup("Library",
+            ScreenItem("overview", "Overview", Icons.Home, null, () => new OverviewScreen(_app)),
+            ScreenItem("catalogue", "Catalogue", Icons.Library, Keys.Control | Keys.F, () => new CatalogueScreen(_app)));
 
         if (role == RoleCode.Librarian)
         {
@@ -108,6 +113,9 @@ internal sealed class MainForm : Form
         }
 
         _sidebar.AddFooterItems(
+            Theme.Colors.IsDark
+                ? Command("theme", "Switch to light mode", Icons.LightMode, ToggleTheme)
+                : Command("theme", "Switch to dark mode", Icons.DarkMode, ToggleTheme),
             Command("change-password", "Change password…", Icons.Password, ChangePassword),
             Command("logout", "Log out", Icons.SignOut, LogOut));
         _shortcuts[Keys.Control | Keys.W] = CloseCurrentScreen;
@@ -152,7 +160,7 @@ internal sealed class MainForm : Form
                 Open("my-loans", () => new MyLoansScreen(_app));
                 break;
             default:
-                Open("reports", () => new ReportsScreen(_app));
+                Open("overview", () => new OverviewScreen(_app));
                 break;
         }
     }
@@ -164,8 +172,7 @@ internal sealed class MainForm : Form
         {
             if (key != _currentKey)
             {
-                Display(key, existing);
-                existing.RefreshData();
+                Display(key, existing, refresh: true);
             }
 
             return;
@@ -178,8 +185,7 @@ internal sealed class MainForm : Form
             screen.Visible = false;
             _content.Controls.Add(screen);
             _openScreens[key] = screen;
-            Display(key, screen);
-            screen.RefreshData();
+            Display(key, screen, refresh: true);
         }
         catch (Exception ex)
         {
@@ -187,27 +193,55 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void Display(string key, ScreenBase screen)
+    /// <summary>
+    /// Shows <paramref name="screen"/> (reloading its data when <paramref name="refresh"/> is set) with a
+    /// fade-through from the screen shown before. <paramref name="transition"/> is passed in when the old
+    /// screen is about to be disposed and had to be captured earlier.
+    /// </summary>
+    private void Display(string key, ScreenBase screen, bool refresh, ScreenTransition? transition = null)
     {
-        _content.SuspendLayout();
-        screen.Visible = true;
-        screen.BringToFront();
-        foreach (var other in _openScreens.Values.Where(s => s != screen))
+        _transition?.Finish();
+        var current = _currentKey != null && _openScreens.TryGetValue(_currentKey, out var shown) && shown != screen ? shown : null;
+        transition ??= ScreenTransition.Capture(_content, current);
+        _transition = transition;
+
+        // Swap screens with drawing paused so the old and new screen never show half-painted together.
+        using (AntiFlicker.SuspendDrawing(_content))
         {
-            other.Visible = false;
+            _content.SuspendLayout();
+            screen.Visible = true;
+            screen.BringToFront();
+            foreach (var other in _openScreens.Values.Where(s => s != screen))
+            {
+                other.Visible = false;
+            }
+
+            if (_noScreen != null)
+            {
+                _noScreen.Visible = false;
+            }
+
+            _content.ResumeLayout(true);
+            transition?.BringToFront();
         }
 
-        if (_noScreen != null)
-        {
-            _noScreen.Visible = false;
-        }
-
-        _content.ResumeLayout(true);
         _currentKey = key;
         _recentKeys.Remove(key);
         _recentKeys.Add(key);
         _sidebar.SelectedKey = key;
         screen.SelectNextControl(null, true, true, true, false);
+        try
+        {
+            if (refresh)
+            {
+                screen.RefreshData();
+            }
+        }
+        finally
+        {
+            // Animate to the screen with its fresh data (or just remove the picture if anything failed).
+            transition?.Play(screen);
+        }
     }
 
     /// <summary>Ctrl+W: closes the current screen and returns to the one used before it.</summary>
@@ -219,6 +253,8 @@ internal sealed class MainForm : Form
         }
 
         _recentKeys.Remove(_currentKey);
+        _transition?.Finish();
+        var transition = _recentKeys.Count > 0 ? ScreenTransition.Capture(_content, screen) : null;
         _content.Controls.Remove(screen);
         screen.Dispose();
         _currentKey = null;
@@ -227,8 +263,7 @@ internal sealed class MainForm : Form
         {
             var previous = _recentKeys[^1];
             var previousScreen = _openScreens[previous];
-            Display(previous, previousScreen);
-            previousScreen.RefreshData();
+            Display(previous, previousScreen, refresh: true, transition);
             return;
         }
 
@@ -261,6 +296,33 @@ internal sealed class MainForm : Form
     {
         using var dialog = new ChangePasswordDialog(_app);
         dialog.ShowDialog(this);
+    }
+
+    /// <summary>
+    /// Saves the other theme and restarts the app: colours are fixed when it starts, so a restart is the
+    /// only way to repaint every window consistently.
+    /// </summary>
+    private void ToggleTheme()
+    {
+        var toDark = !Theme.Colors.IsDark;
+        if (!MessageDialog.Confirm(this, toDark ? "Switch to dark mode?" : "Switch to light mode?",
+                "E-Library will restart to apply the theme, and you will need to sign in again.", "Restart"))
+        {
+            return;
+        }
+
+        try
+        {
+            ThemePreference.Save(toDark ? ThemeMode.Dark : ThemeMode.Light);
+        }
+        catch (Exception ex)
+        {
+            ErrorHandler.Show(this, ex);
+            return;
+        }
+
+        _app.Auth.Logout();
+        Application.Restart();
     }
 
     private void LogOut()

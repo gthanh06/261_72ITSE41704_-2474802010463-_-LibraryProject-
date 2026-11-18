@@ -23,6 +23,7 @@ internal static class GridStyle
         States.Add(grid, state);
 
         var cellPadding = grid.Px(Theme.Space.S, 0, Theme.Space.S, 0);
+        AntiFlicker.EnableDoubleBuffering(grid);
         grid.BorderStyle = BorderStyle.None;
         grid.BackgroundColor = Theme.Colors.Surface;
         grid.GridColor = Theme.Colors.Border;

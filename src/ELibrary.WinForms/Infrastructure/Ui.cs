@@ -62,7 +62,7 @@ internal static class Ui
     {
         var box = new ThemedTextBox { UseSystemPasswordChar = password };
         box.Width = box.Px(width);
-        box.Margin = box.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        box.Margin = box.PxAll(Theme.Space.Xxs);
         return box;
     }
 
@@ -76,33 +76,29 @@ internal static class Ui
 
     public static NumericUpDown Number(decimal min, decimal max, decimal value, decimal increment = 1, int width = 90)
     {
-        var number = new NumericUpDown
+        var number = new ThemedNumber
         {
             Minimum = min,
             Maximum = max,
             Value = value,
             Increment = increment,
-            ThousandsSeparator = true,
-            Font = Theme.Fonts.Body,
-            ForeColor = Theme.Colors.Text
+            ThousandsSeparator = true
         };
         number.Width = number.Px(width);
-        number.Margin = number.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        number.Margin = number.PxAll(Theme.Space.Xxs);
         return number;
     }
 
     public static DateTimePicker DatePicker(DateOnly value, int width = 130)
     {
-        var picker = new DateTimePicker
+        var picker = new ThemedDatePicker
         {
             Format = DateTimePickerFormat.Custom,
             CustomFormat = DateFormat,
-            Value = value.ToDateTime(TimeOnly.MinValue),
-            Font = Theme.Fonts.Body,
-            CalendarFont = Theme.Fonts.Body
+            Value = value.ToDateTime(TimeOnly.MinValue)
         };
         picker.Width = picker.Px(width);
-        picker.Margin = picker.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        picker.Margin = picker.PxAll(Theme.Space.Xxs);
         return picker;
     }
 

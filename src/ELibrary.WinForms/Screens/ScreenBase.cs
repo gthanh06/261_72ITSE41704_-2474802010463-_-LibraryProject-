@@ -12,6 +12,8 @@ internal abstract class ScreenBase : UserControl
 {
     private readonly PageHeader _header;
     private readonly StatusLine _status;
+    private readonly Dictionary<string, int> _loadVersions = new();
+    private int _loading;
 
     protected ScreenBase(AppServices app, string title)
     {
@@ -58,6 +60,13 @@ internal abstract class ScreenBase : UserControl
         }
     }
 
+    /// <summary>Gives combo boxes and check boxes that the screen created itself the themed look (display only).</summary>
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        NativeTheme.ApplyToTree(this);
+    }
+
     protected void SetStatus(string text, bool isError = false) =>
         _status.ShowMessage(text, isError ? Tone.Danger : Tone.Success);
 
@@ -78,22 +87,83 @@ internal abstract class ScreenBase : UserControl
         }
         catch (Exception ex)
         {
-            var message = ErrorHandler.Describe(ex);
-            SetStatus(message, isError: true);
-            if (ex is LibraryException and not DataAccessException)
+            ReportFailure(ex);
+            return false;
+        }
+        finally
+        {
+            Cursor = _loading > 0 ? Cursors.AppStarting : Cursors.Default;
+        }
+    }
+
+    /// <summary>
+    /// Loads data off the UI thread so the window stays responsive (and animations keep running), then
+    /// shows it with <paramref name="apply"/> on the UI thread. While it loads, <paramref name="placeholder"/>
+    /// (usually the grid being filled) is covered by a skeleton: at once when it is empty, or only if the
+    /// load is slow when it already shows data. Starting the same <paramref name="slot"/> again makes the
+    /// older load's result be ignored, so a slow early search never overwrites a newer one.
+    /// Returns true when the result was shown; failures are reported like <see cref="Run"/>.
+    /// </summary>
+    protected async Task<bool> RunAsync<T>(string slot, Func<T> load, Action<T> apply, Control? placeholder = null)
+    {
+        var version = _loadVersions[slot] = _loadVersions.GetValueOrDefault(slot) + 1;
+        bool IsCurrent() => !IsDisposed && !Disposing && _loadVersions.GetValueOrDefault(slot) == version;
+
+        var skeleton = placeholder == null ? null : SkeletonOverlay.Show(placeholder, delayMs: IsEmpty(placeholder) ? 0 : 400);
+        _loading++;
+        Cursor = Cursors.AppStarting;
+        try
+        {
+            var result = await Task.Run(load);
+            if (!IsCurrent())
             {
-                Notify(Tone.Danger, "Could not complete this action", message);
+                return false;
             }
-            else
+
+            apply(result);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (IsCurrent())
             {
-                ErrorHandler.Show(FindForm(), ex);
+                ReportFailure(ex);
             }
 
             return false;
         }
         finally
         {
-            Cursor = Cursors.Default;
+            skeleton?.Hide();
+            _loading--;
+            if (!IsDisposed && _loading == 0)
+            {
+                Cursor = Cursors.Default;
+            }
+        }
+    }
+
+    /// <summary>Makes a pending <see cref="RunAsync{T}"/> in <paramref name="slot"/> ignore its result.</summary>
+    protected void CancelLoad(string slot) => _loadVersions[slot] = _loadVersions.GetValueOrDefault(slot) + 1;
+
+    private static bool IsEmpty(Control control) =>
+        control is DataGridView grid ? grid.Rows.Count == 0 : control.Controls.Count == 0;
+
+    /// <summary>
+    /// Shows why a service call failed: expected errors (validation, business rules) in the status line and
+    /// as a notification; unexpected errors in a dialog.
+    /// </summary>
+    private void ReportFailure(Exception ex)
+    {
+        var message = ErrorHandler.Describe(ex);
+        SetStatus(message, isError: true);
+        if (ex is LibraryException and not DataAccessException)
+        {
+            Notify(Tone.Danger, "Could not complete this action", message);
+        }
+        else
+        {
+            ErrorHandler.Show(FindForm(), ex);
         }
     }
 }
