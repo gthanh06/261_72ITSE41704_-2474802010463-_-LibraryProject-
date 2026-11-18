@@ -51,6 +51,8 @@ internal sealed class Sidebar : Control
     private float _indicatorY = -1;
     private Tween? _indicatorTween;
     private int? _layoutWidth;
+    private Tween? _widthTween;
+    private int _dockIndex = -1;
     private string? _tipText;
 
     public Sidebar()
@@ -85,9 +87,33 @@ internal sealed class Sidebar : Control
             }
 
             _collapsed = value;
-            Width = this.Px(value ? Theme.Size.SidebarCollapsedWidth : Theme.Size.SidebarWidth);
             _scroll = 0;
+            var target = this.Px(value ? Theme.Size.SidebarCollapsedWidth : Theme.Size.SidebarWidth);
+            _widthTween?.Stop();
+            if (!Theme.Motion.Enabled || !IsHandleCreated || !Visible || Parent == null || Width == target)
+            {
+                _layoutWidth = null;
+                Redock(); // in case an animation was interrupted
+                Width = target;
+                Rebuild(animateIndicator: false);
+                return;
+            }
+
+            // Float above the content while the width animates, so the screens are laid out once at the
+            // start and once at the end instead of on every frame.
+            FloatOverContent();
+            _layoutWidth = target;
             Rebuild(animateIndicator: false);
+            var from = Width;
+            _widthTween = Tween.Run(Theme.Motion.NormalMs + 60,
+                p => Width = (int)Math.Round(from + (target - from) * p),
+                () =>
+                {
+                    _layoutWidth = null;
+                    Redock();
+                    Rebuild(animateIndicator: false);
+                },
+                Easing.InOutCubic);
         }
     }
 
@@ -320,6 +346,7 @@ internal sealed class Sidebar : Control
         {
             _tip.Dispose();
             _indicatorTween?.Dispose();
+            _widthTween?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -566,6 +593,49 @@ internal sealed class Sidebar : Control
 
         UpdateIndicator(animateIndicator);
         Invalidate();
+    }
+
+    /// <summary>Leaves the parent's docking and sits on top of the content (for the width animation).</summary>
+    private void FloatOverContent()
+    {
+        var parent = Parent;
+        if (parent == null || Dock == DockStyle.None)
+        {
+            return;
+        }
+
+        _dockIndex = parent.Controls.GetChildIndex(this);
+        var bounds = Bounds;
+        using (AntiFlicker.SuspendDrawing(parent))
+        {
+            parent.SuspendLayout();
+            Dock = DockStyle.None;
+            Bounds = bounds;
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            BringToFront();
+            parent.ResumeLayout(true);
+        }
+    }
+
+    /// <summary>Docks to the left again at the position in the z-order it had before <see cref="FloatOverContent"/>.</summary>
+    private void Redock()
+    {
+        var parent = Parent;
+        if (parent == null || Dock != DockStyle.None || _dockIndex < 0)
+        {
+            return;
+        }
+
+        using (AntiFlicker.SuspendDrawing(parent))
+        {
+            parent.SuspendLayout();
+            Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            Dock = DockStyle.Left;
+            parent.Controls.SetChildIndex(this, Math.Min(_dockIndex, parent.Controls.Count - 1));
+            parent.ResumeLayout(true);
+        }
+
+        _dockIndex = -1;
     }
 
     private void UpdateIndicator(bool animate)
