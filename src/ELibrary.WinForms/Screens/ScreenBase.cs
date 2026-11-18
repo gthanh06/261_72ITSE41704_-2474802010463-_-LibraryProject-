@@ -85,22 +85,30 @@ internal abstract class ScreenBase : UserControl
         }
         catch (Exception ex)
         {
-            var message = ErrorHandler.Describe(ex);
-            SetStatus(message, isError: true);
-            if (ex is LibraryException and not DataAccessException)
-            {
-                Notify(Tone.Danger, "Could not complete this action", message);
-            }
-            else
-            {
-                ErrorHandler.Show(FindForm(), ex);
-            }
-
+            ReportFailure(ex);
             return false;
         }
         finally
         {
             Cursor = Cursors.Default;
+        }
+    }
+
+    /// <summary>
+    /// Shows why a service call failed: expected errors (validation, business rules) in the status line and
+    /// as a notification; unexpected errors in a dialog.
+    /// </summary>
+    private void ReportFailure(Exception ex)
+    {
+        var message = ErrorHandler.Describe(ex);
+        SetStatus(message, isError: true);
+        if (ex is LibraryException and not DataAccessException)
+        {
+            Notify(Tone.Danger, "Could not complete this action", message);
+        }
+        else
+        {
+            ErrorHandler.Show(FindForm(), ex);
         }
     }
 }
