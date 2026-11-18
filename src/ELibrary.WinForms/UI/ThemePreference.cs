@@ -22,8 +22,17 @@ internal static class ThemePreference
     /// <summary>True when this run of the app uses the dark palette.</summary>
     public static bool IsDark { get; } = Resolve(Load());
 
+    /// <summary>
+    /// The saved choice. The environment variable ELIBRARY_THEME (light, dark or system) overrides it for one
+    /// run, e.g. to take screenshots of both themes without touching the user's setting.
+    /// </summary>
     public static ThemeMode Load()
     {
+        if (Enum.TryParse<ThemeMode>(Environment.GetEnvironmentVariable("ELIBRARY_THEME"), true, out var forced))
+        {
+            return forced;
+        }
+
         try
         {
             return File.Exists(FilePath) && Enum.TryParse<ThemeMode>(File.ReadAllText(FilePath).Trim(), true, out var mode)
