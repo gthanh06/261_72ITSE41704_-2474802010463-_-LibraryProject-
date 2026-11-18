@@ -41,6 +41,8 @@ internal sealed class CatalogueScreen : ScreenBase
     private readonly CheckBox _onlyAvailable = new() { Text = "Only available", AutoSize = true, Margin = new Padding(8, 8, 3, 3) };
     private readonly CheckBox _includeInactive = new() { Text = "Include inactive", AutoSize = true, Margin = new Padding(8, 8, 3, 3) };
     private readonly DataGridView _titles = Ui.Grid();
+    private readonly CoverGrid _covers = new() { Dock = DockStyle.Fill, Visible = false };
+    private Button? _viewToggle;
     private readonly DataGridView _copies = Ui.Grid();
     private readonly DataGridView _links = Ui.Grid();
     private readonly Label _details = new() { AutoSize = true, MaximumSize = new Size(900, 0), Padding = new Padding(0, 4, 0, 4) };
@@ -67,7 +69,23 @@ internal sealed class CatalogueScreen : ScreenBase
 
         _field.SelectedItem = CatalogueSearchField.All;
         Ui.OnEnter(_search, () => _ = Search());
-        _titles.SelectionChanged += (_, _) => LoadDetails();
+        _titles.SelectionChanged += (_, _) =>
+        {
+            _covers.SelectId(Ui.Selected<TitleSummaryDto>(_titles)?.Id);
+            LoadDetails();
+        };
+        // The cover view drives the same table selection, so details and actions work the same in both views.
+        _covers.SelectionChanged += (_, _) =>
+        {
+            if (_covers.SelectedItem is { } item)
+            {
+                SelectTitle(item.Id);
+            }
+        };
+        if (_isLibrarian)
+        {
+            _covers.ItemActivated += (_, _) => EditTitle();
+        }
         _links.CellDoubleClick += (_, _) => OpenLink();
 
         var searchRow = Ui.Row(Ui.Label("Search"), _search, Ui.Label("in"), _field, Ui.Label("Category"), _category, _onlyAvailable);
@@ -77,6 +95,9 @@ internal sealed class CatalogueScreen : ScreenBase
         }
 
         searchRow.Controls.Add(Ui.Button("Search", () => _ = Search(), 100));
+        _viewToggle = Ui.Button("Covers", ToggleView, 100);
+        _viewToggle.AccessibleDescription = "Switch between the table and the book cover view";
+        searchRow.Controls.Add(_viewToggle);
 
         var actions = Ui.Row();
         if (_isMember)
@@ -110,6 +131,7 @@ internal sealed class CatalogueScreen : ScreenBase
 
         var split = Ui.Split(Orientation.Horizontal, 0.45);
         split.Panel1.Controls.Add(_titles);
+        split.Panel1.Controls.Add(_covers);
         split.Panel2.Controls.Add(detailPanel);
 
         Compose(split, searchRow);
@@ -167,10 +189,30 @@ internal sealed class CatalogueScreen : ScreenBase
             found =>
             {
                 Ui.Fill(_titles, found.Results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
+                _covers.SetItems(found.Results.Select(ToCover));
+                _covers.SelectId(Ui.Selected<TitleSummaryDto>(_titles)?.Id);
                 SetStatus($"{found.Results.Count} title(s) found in {found.Ms:0} ms.");
             },
-            placeholder: _titles);
+            placeholder: _covers.Visible ? _covers : _titles);
     }
+
+    /// <summary>Switches the results between the table and the cover wall (same data and selection).</summary>
+    private void ToggleView()
+    {
+        var showCovers = !_covers.Visible;
+        _covers.Visible = showCovers;
+        _titles.Visible = !showCovers;
+        _viewToggle!.Text = showCovers ? "Table" : "Covers";
+        (showCovers ? (Control)_covers : _titles).Focus();
+    }
+
+    private static CoverItem ToCover(TitleSummaryDto t) => new(
+        t.Id,
+        t.Name,
+        t.Authors,
+        !t.IsActive ? "Inactive" : $"{t.AvailableCopies} / {t.TotalCopies} available",
+        !t.IsActive ? Tone.Neutral : t.AvailableCopies > 0 ? Tone.Success : Tone.Warning,
+        !t.IsActive);
 
     private void LoadDetails(int? selectTitleId = null)
     {
