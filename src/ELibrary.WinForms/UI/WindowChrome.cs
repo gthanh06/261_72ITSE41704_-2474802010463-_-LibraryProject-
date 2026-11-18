@@ -8,6 +8,7 @@ namespace ELibrary.WinForms.UI;
 /// </summary>
 internal static class WindowChrome
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaWindowCornerPreference = 33;
     private const int DwmwaBorderColor = 34;
     private const int DwmwaCaptionColor = 35;
@@ -30,6 +31,10 @@ internal static class WindowChrome
         {
             return;
         }
+
+        // Dark caption buttons (min/max/close) to match the dark palette.
+        var dark = Theme.Colors.IsDark ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
 
         var corner = DwmwcpRound;
         var captionColor = ToColorRef(caption);
