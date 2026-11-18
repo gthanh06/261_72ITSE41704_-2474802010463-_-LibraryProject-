@@ -143,6 +143,9 @@ internal abstract class ScreenBase : UserControl
         }
     }
 
+    /// <summary>Makes a pending <see cref="RunAsync{T}"/> in <paramref name="slot"/> ignore its result.</summary>
+    protected void CancelLoad(string slot) => _loadVersions[slot] = _loadVersions.GetValueOrDefault(slot) + 1;
+
     private static bool IsEmpty(Control control) =>
         control is DataGridView grid ? grid.Rows.Count == 0 : control.Controls.Count == 0;
 
