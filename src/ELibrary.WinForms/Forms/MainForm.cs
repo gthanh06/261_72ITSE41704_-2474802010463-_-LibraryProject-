@@ -22,6 +22,7 @@ internal sealed class MainForm : Form
     private readonly Dictionary<Keys, Action> _shortcuts = new();
     private readonly Dictionary<string, string> _sections = new();
     private EmptyState? _noScreen;
+    private ScreenTransition? _transition;
     private string? _currentKey;
     private bool? _narrow;
 
@@ -166,8 +167,7 @@ internal sealed class MainForm : Form
         {
             if (key != _currentKey)
             {
-                Display(key, existing);
-                existing.RefreshData();
+                Display(key, existing, refresh: true);
             }
 
             return;
@@ -180,8 +180,7 @@ internal sealed class MainForm : Form
             screen.Visible = false;
             _content.Controls.Add(screen);
             _openScreens[key] = screen;
-            Display(key, screen);
-            screen.RefreshData();
+            Display(key, screen, refresh: true);
         }
         catch (Exception ex)
         {
@@ -189,8 +188,18 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void Display(string key, ScreenBase screen)
+    /// <summary>
+    /// Shows <paramref name="screen"/> (reloading its data when <paramref name="refresh"/> is set) with a
+    /// fade-through from the screen shown before. <paramref name="transition"/> is passed in when the old
+    /// screen is about to be disposed and had to be captured earlier.
+    /// </summary>
+    private void Display(string key, ScreenBase screen, bool refresh, ScreenTransition? transition = null)
     {
+        _transition?.Finish();
+        var current = _currentKey != null && _openScreens.TryGetValue(_currentKey, out var shown) && shown != screen ? shown : null;
+        transition ??= ScreenTransition.Capture(_content, current);
+        _transition = transition;
+
         // Swap screens with drawing paused so the old and new screen never show half-painted together.
         using (AntiFlicker.SuspendDrawing(_content))
         {
@@ -208,6 +217,7 @@ internal sealed class MainForm : Form
             }
 
             _content.ResumeLayout(true);
+            transition?.BringToFront();
         }
 
         _currentKey = key;
@@ -215,6 +225,18 @@ internal sealed class MainForm : Form
         _recentKeys.Add(key);
         _sidebar.SelectedKey = key;
         screen.SelectNextControl(null, true, true, true, false);
+        try
+        {
+            if (refresh)
+            {
+                screen.RefreshData();
+            }
+        }
+        finally
+        {
+            // Animate to the screen with its fresh data (or just remove the picture if anything failed).
+            transition?.Play(screen);
+        }
     }
 
     /// <summary>Ctrl+W: closes the current screen and returns to the one used before it.</summary>
@@ -226,6 +248,8 @@ internal sealed class MainForm : Form
         }
 
         _recentKeys.Remove(_currentKey);
+        _transition?.Finish();
+        var transition = _recentKeys.Count > 0 ? ScreenTransition.Capture(_content, screen) : null;
         _content.Controls.Remove(screen);
         screen.Dispose();
         _currentKey = null;
@@ -234,8 +258,7 @@ internal sealed class MainForm : Form
         {
             var previous = _recentKeys[^1];
             var previousScreen = _openScreens[previous];
-            Display(previous, previousScreen);
-            previousScreen.RefreshData();
+            Display(previous, previousScreen, refresh: true, transition);
             return;
         }
 
