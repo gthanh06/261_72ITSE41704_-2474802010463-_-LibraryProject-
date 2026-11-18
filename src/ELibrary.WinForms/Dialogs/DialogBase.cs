@@ -30,6 +30,7 @@ internal abstract class DialogBase : Form
         Font = Theme.Fonts.Body;
         Padding = this.Px(Theme.Space.L, Theme.Space.M, Theme.Space.L, Theme.Space.M);
         WindowChrome.Apply(this, Theme.Colors.Surface);
+        DialogMotion.Apply(this);
 
         _heading = new Label
         {
