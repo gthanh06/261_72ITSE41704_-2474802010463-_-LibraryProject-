@@ -28,6 +28,9 @@ internal static class NativeTheme
                     child.ForeColor = Theme.Colors.Text;
                     CentreInRow(child);
                     break;
+                case ScrollBar or TextBoxBase or ListBox or TreeView or ListView:
+                    UseDarkScrollbars(child);
+                    break;
             }
 
             if (child is not (ComboBox or NumericUpDown or DateTimePicker))
@@ -35,6 +38,22 @@ internal static class NativeTheme
                 ApplyToTree(child);
             }
         }
+    }
+
+    /// <summary>In the dark theme, gives a native control dark scroll bars (Windows 10 1809 and later).</summary>
+    public static void UseDarkScrollbars(Control control)
+    {
+        if (!Theme.Colors.IsDark)
+        {
+            return;
+        }
+
+        if (control.IsHandleCreated)
+        {
+            SetWindowTheme(control.Handle, "DarkMode_Explorer", null);
+        }
+
+        control.HandleCreated += (_, _) => SetWindowTheme(control.Handle, "DarkMode_Explorer", null);
     }
 
     public static void Style(ComboBox combo)
@@ -187,4 +206,7 @@ internal static class NativeTheme
         [DllImport("user32.dll")]
         private static extern bool GetComboBoxInfo(IntPtr hwnd, ref ComboBoxInfo info);
     }
+
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hwnd, string? subAppName, string? subIdList);
 }
