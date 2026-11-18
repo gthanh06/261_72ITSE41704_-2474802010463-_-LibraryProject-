@@ -23,7 +23,6 @@ internal sealed class DimOverlay : Form
         BackColor = Theme.Colors.Overlay;
         Opacity = 0;
         Bounds = owner.Bounds;
-        Enabled = false;
         AccessibleRole = AccessibleRole.None;
     }
 
@@ -52,6 +51,9 @@ internal sealed class DimOverlay : Form
 
         var overlay = new DimOverlay(owner);
         overlay.Show(owner);
+        // Disable it only once shown: WinForms refuses to show a disabled form ("Forms that are not enabled
+        // cannot be displayed…"), which made every dialog raise an error. Disabled, it takes no input.
+        overlay.Enabled = false;
         // Keep the overlay directly below the dialog in the z-order.
         SetWindowPos(overlay.Handle, dialog.Handle, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
         Tween.Run(Theme.Motion.NormalMs, p => overlay.Opacity = TargetOpacity * p);
