@@ -1,0 +1,40 @@
+sequenceDiagram
+  autonumber
+  actor L as Librarian
+  participant UI as CheckoutScreen
+  participant CS as CirculationService
+  participant FL as FineLedger
+  participant UoW as IUnitOfWork
+  participant M as Member
+  participant MT as MembershipType
+  participant C as Copy
+  L->>UI: enter member code, Enter
+  UI->>CS: GetMemberSummary(code)
+  CS-->>UI: MemberSummaryDto (loans, fines, eligible?)
+  L->>UI: enter barcode, Enter
+  UI->>CS: CheckOut(memberCode, barcode)
+  CS->>CS: session.Require(Librarian)
+  CS->>UoW: load member, type, policy, copy, open loans
+  CS->>FL: GetOutstanding(memberId, today)
+  CS->>M: EnsureCanBorrow(today, outstanding, policy)
+  alt card expired or fines > threshold (BR2)
+    M-->>CS: throw BusinessRuleException
+    CS-->>UI: exception → warning shown, nothing saved
+  end
+  CS->>MT: EnsureBelowLoanLimit(openLoans)
+  alt limit reached (BR1)
+    MT-->>CS: throw "Loan limit reached (3/3)"
+  end
+  alt copy OnHold
+    CS->>UoW: find OnHold reservation for this copy
+    alt held for another member (BR6)
+      CS-->>UI: throw BusinessRuleException
+    else held for this member
+      CS->>CS: reservation.Fulfil(now)
+    end
+  end
+  CS->>C: CheckOut() or CheckOutHeldCopy()
+  CS->>MT: CalculateDueDate(today, calendar)
+  CS->>UoW: Add(new Loan)
+  CS->>UoW: SaveChanges() (one transaction)
+  CS-->>UI: LoanDto (title, due date)

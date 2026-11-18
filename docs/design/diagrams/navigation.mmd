@@ -1,0 +1,18 @@
+flowchart LR
+  Login[LoginForm] -->|Administrator| A[MainForm]
+  Login -->|Librarian| A
+  Login -->|Member| A
+  A --> Cat[Catalogue search]
+  Cat --> TE[Title editor dialog<br/>copies · e-resources]
+  A --> CO[Check out]
+  A --> RT[Return]
+  A --> LO[Loans & renewals]
+  A --> HO[Holds]
+  A --> FI[Fines & payments]
+  A --> ME[Members]
+  ME --> MED[Member editor dialog]
+  A --> MY[My loans · My reservations · My fines]
+  A --> RP[Reports → Export]
+  A --> UA[User accounts]
+  A --> ST[Settings<br/>membership types · fine policy · holidays · backup]
+  A --> PW[Change password]

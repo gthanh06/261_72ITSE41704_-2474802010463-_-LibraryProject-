@@ -1,0 +1,102 @@
+classDiagram
+  direction TB
+  class IUnitOfWork {
+    <<interface>>
+    +IRepository~T~ Members, Copies, Loans …
+    +SaveChanges()
+    +ExecuteInTransaction(action)
+  }
+  class IRepository~T~ {
+    <<interface>>
+    +Query() IQueryable~T~
+    +GetById(id) T
+    +Add(entity)
+    +Remove(entity)
+  }
+  class IUserSession {
+    <<interface>>
+    +CurrentUser? User
+    +SignIn(user)
+    +SignOut()
+  }
+  class IClock {
+    <<interface>>
+    +DateTime Now
+    +DateOnly Today
+  }
+  class CirculationService {
+    +GetMemberSummary(code)
+    +CheckOut(code, barcode) LoanDto
+    +Return(barcode) ReturnReceiptDto
+    +Renew(loanId) LoanDto
+    +GetOpenLoans(code, overdueOnly)
+    +GetMyLoans()
+  }
+  class ReservationService {
+    +Place(titleId) ReservationDto
+    +Cancel(reservationId)
+    +GetMyReservations(includeClosed)
+    +ProcessHolds() ProcessHoldsResultDto
+    +ExpireHoldsAtStartup() int
+    +GetActiveHolds()
+  }
+  class FineService {
+    +GetMemberFines(code)
+    +GetMyFines()
+    +RecordPayment(code, amount) PaymentReceiptDto
+  }
+  class LibraryRules {
+    +FinePolicy Policy
+    +LibraryCalendar Calendar
+    +Load(uow)$ LibraryRules
+  }
+  class FineLedger {
+    +GetFineToDate(loan, today) decimal
+    +GetUnpaidFines(memberId)
+    +GetOutstanding(memberId, today) decimal
+  }
+  class HoldAllocator {
+    +AssignCopy(copy, today) Reservation?
+    +GetQueue(titleId)
+  }
+  class ReportService {
+    +GetAvailableReports()
+    +Run(key, request) ReportTable
+  }
+  class IReport {
+    <<interface>>
+    +string Key
+    +string Name
+    +Run(context, request) ReportTable
+  }
+  class IReportExporter {
+    <<interface>>
+    +string FormatName
+    +Export(table, stream)
+  }
+  class EfUnitOfWork
+  class EfRepository~T~
+  class CurrentLoansReport
+  class OverdueItemsReport
+  class OutstandingFinesReport
+  class TopBorrowedTitlesReport
+  class ExcelReportExporter
+  class CsvReportExporter
+  IUnitOfWork <|.. EfUnitOfWork
+  IRepository~T~ <|.. EfRepository~T~
+  IReport <|.. CurrentLoansReport
+  IReport <|.. OverdueItemsReport
+  IReport <|.. OutstandingFinesReport
+  IReport <|.. TopBorrowedTitlesReport
+  IReportExporter <|.. ExcelReportExporter
+  IReportExporter <|.. CsvReportExporter
+  CirculationService ..> IUnitOfWork
+  CirculationService ..> IUserSession
+  CirculationService ..> IClock
+  CirculationService ..> FineLedger
+  CirculationService ..> HoldAllocator
+  CirculationService ..> LibraryRules
+  ReservationService ..> HoldAllocator
+  ReservationService ..> FineLedger
+  FineService ..> FineLedger
+  ReportService o-- IReport

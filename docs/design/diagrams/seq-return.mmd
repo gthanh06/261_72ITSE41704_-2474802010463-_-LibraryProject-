@@ -1,0 +1,35 @@
+sequenceDiagram
+  autonumber
+  actor L as Librarian
+  participant UI as ReturnScreen
+  participant CS as CirculationService
+  participant UoW as IUnitOfWork
+  participant LN as Loan
+  participant CAL as LibraryCalendar
+  participant FP as FinePolicy
+  participant HA as HoldAllocator
+  participant C as Copy
+  L->>UI: enter barcode
+  UI->>CS: Return(barcode)
+  CS->>CS: session.Require(Librarian)
+  CS->>UoW: find copy and its open loan
+  alt no open loan
+    CS-->>UI: throw NotFoundException
+  end
+  CS->>LN: Close(now, staffId)
+  CS->>CAL: CountChargeableDays(dueDate, today)
+  opt days > 0 (include UC12)
+    CS->>FP: CalculateFine(days)
+    CS->>UoW: Add(new Fine)
+  end
+  CS->>C: CheckIn()
+  CS->>HA: AssignCopy(copy, today)
+  alt title has Waiting reservations (extend UC11)
+    HA->>UoW: oldest Waiting reservation (FIFO)
+    HA->>C: PlaceOnHold()
+    HA->>HA: reservation.PlaceHold(copyId, today + 3 opening days)
+  else nobody waiting
+    Note over C: copy stays Available
+  end
+  CS->>UoW: SaveChanges() (one transaction)
+  CS-->>UI: ReturnReceiptDto (fine, hold for …)

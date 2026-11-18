@@ -1,0 +1,34 @@
+flowchart TB
+  subgraph P["Presentation layer — ELibrary.WinForms"]
+    LF[LoginForm] --> MF[MainForm<br/>role-based menu + tabs]
+    MF --> SC["Screens (ScreenBase)<br/>Catalogue · Checkout · Return · Loans · Holds<br/>Fines · Members · My library · Reports · Accounts · Settings"]
+    EX["IReportExporter<br/>Excel / CSV"]
+  end
+  subgraph B["Business layer — ELibrary.Business"]
+    SV["Services<br/>Auth · Account · Settings · Catalogue · Member<br/>Circulation · Reservation · Fine · Report"]
+    IN["Internal: HoldAllocator · FineLedger · CalendarProvider"]
+    AB["Abstractions<br/>IUnitOfWork · IRepository&lt;T&gt; · IClock · IUserSession · IPasswordHasher"]
+    DTO[DTOs]
+  end
+  subgraph D["Domain — ELibrary.Domain"]
+    EN["Entities with behaviour<br/>Member · MembershipType · Copy · Loan · Reservation · Fine · FinePolicy …"]
+    CAL[LibraryCalendar]
+    EXC[LibraryException hierarchy]
+  end
+  subgraph A["Data access layer — ELibrary.DataAccess"]
+    CTX[LibraryDbContext + configurations]
+    REP["EfRepository&lt;T&gt; · EfUnitOfWork(Factory)"]
+    SEED[DbInitializer · SqlServerMaintenance]
+  end
+  DB[(SQL Server<br/>ELibraryDb)]
+  SC -->|calls| SV
+  SV --> IN
+  SV --> DTO
+  SV --> EN
+  IN --> EN
+  SV -.uses.-> AB
+  REP -.implements.-> AB
+  REP --> CTX
+  CTX --> DB
+  SEED --> CTX
+  EN --> CAL

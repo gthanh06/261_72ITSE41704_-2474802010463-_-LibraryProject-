@@ -1,0 +1,23 @@
+sequenceDiagram
+  autonumber
+  actor M as Member
+  participant UI as CatalogueScreen
+  participant RS as ReservationService
+  participant UoW as IUnitOfWork
+  participant FL as FineLedger
+  participant MB as Member
+  M->>UI: select title, Reserve
+  UI->>RS: Place(titleId)
+  RS->>RS: session.Require(Member)
+  RS->>UoW: load member, policy, copies of title
+  RS->>FL: GetOutstanding(memberId, today)
+  RS->>MB: EnsureCanBorrow(today, outstanding, policy)
+  alt a copy is Available (BR4)
+    RS-->>UI: throw "A copy is available — borrow it at the desk"
+  else member already has an active reservation (BR4)
+    RS-->>UI: throw BusinessRuleException
+  end
+  RS->>UoW: Add(new Reservation(Waiting, now))
+  RS->>UoW: SaveChanges()
+  RS->>UoW: count Waiting reservations before this one
+  RS-->>UI: ReservationDto (queue position)

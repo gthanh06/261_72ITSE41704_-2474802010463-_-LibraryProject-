@@ -1,0 +1,112 @@
+erDiagram
+  Roles ||--o{ UserAccounts : has
+  UserAccounts |o--o| Members : "logs in as"
+  MembershipTypes ||--o{ Members : classifies
+  Publishers |o--o{ Titles : publishes
+  Categories |o--o{ Titles : classifies
+  Titles ||--o{ TitleAuthors : ""
+  Authors ||--o{ TitleAuthors : ""
+  Titles ||--o{ EResources : links
+  Titles ||--o{ Copies : has
+  Copies ||--o{ Loans : "lent in"
+  Members ||--o{ Loans : borrows
+  Titles ||--o{ Reservations : "reserved in"
+  Members ||--o{ Reservations : places
+  Copies |o--o{ Reservations : "held for"
+  Loans ||--o| Fines : incurs
+  Members ||--o{ Fines : owes
+  Fines ||--o{ Payments : "settled by"
+  UserAccounts ||--o{ Payments : receives
+  Roles { int Id PK
+    nvarchar Name UK }
+  UserAccounts { int Id PK
+    nvarchar Username UK
+    nvarchar PasswordHash
+    nvarchar FullName
+    int RoleId FK
+    bit IsLocked
+    int FailedLoginAttempts
+    datetime2 LockoutEndsAt
+    datetime2 LastLoginAt
+    datetime2 CreatedAt }
+  MembershipTypes { int Id PK
+    nvarchar Name UK
+    int MaxLoans
+    int LoanPeriodDays
+    int MaxRenewals
+    bit IsActive }
+  Members { int Id PK
+    nvarchar MemberCode UK
+    nvarchar FullName
+    nvarchar Email
+    nvarchar Phone
+    int MembershipTypeId FK
+    date CardExpiryDate
+    date RegisteredOn
+    bit IsActive
+    int UserAccountId FK "unique, null" }
+  Publishers { int Id PK
+    nvarchar Name UK }
+  Categories { int Id PK
+    nvarchar Name UK }
+  Authors { int Id PK
+    nvarchar Name UK }
+  Titles { int Id PK
+    nvarchar Isbn UK "null"
+    nvarchar Name
+    int PublisherId FK
+    int CategoryId FK
+    int PublicationYear
+    nvarchar Description
+    bit IsActive }
+  TitleAuthors { int Id PK
+    int TitleId FK
+    int AuthorId FK
+    int Position }
+  EResources { int Id PK
+    int TitleId FK
+    nvarchar Label
+    nvarchar Url }
+  Copies { int Id PK
+    nvarchar Barcode UK
+    int TitleId FK
+    nvarchar Location
+    int Status }
+  Loans { int Id PK
+    int CopyId FK "unique where open"
+    int MemberId FK
+    datetime2 LoanDate
+    date DueDate
+    datetime2 ReturnedAt
+    int RenewalCount
+    int IssuedById FK
+    int ReturnedById FK }
+  Reservations { int Id PK
+    int TitleId FK
+    int MemberId FK
+    datetime2 ReservedAt
+    int Status
+    int HeldCopyId FK
+    date HoldExpiresOn
+    datetime2 ClosedAt }
+  Fines { int Id PK
+    int LoanId FK "unique"
+    int MemberId FK
+    int OverdueDays
+    decimal Amount
+    decimal AmountPaid
+    datetime2 CreatedAt }
+  Payments { int Id PK
+    int FineId FK
+    decimal Amount
+    datetime2 PaidAt
+    int ReceivedById FK }
+  Holidays { int Id PK
+    date Date UK
+    nvarchar Description }
+  FinePolicies { int Id PK
+    decimal DailyRate
+    decimal MaxFinePerLoan
+    decimal DebtThreshold
+    int HoldPeriodDays
+    bit ClosedOnSundays }

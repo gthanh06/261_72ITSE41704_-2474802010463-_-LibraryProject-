@@ -1,0 +1,160 @@
+classDiagram
+  direction LR
+  class Entity {
+    <<abstract>>
+    +int Id
+  }
+  class Role {
+    +string Name
+    +RoleCode Code
+  }
+  class UserAccount {
+    +string Username
+    +string PasswordHash
+    +string FullName
+    +int RoleId
+    +bool IsLocked
+    +int FailedLoginAttempts
+    +DateTime? LockoutEndsAt
+    +DateTime? LastLoginAt
+    +IsLockedOut(now) bool
+    +RegisterFailedLogin(now)
+    +RegisterSuccessfulLogin(now)
+    +Lock()
+    +Unlock()
+    +ChangePasswordHash(hash)
+    +ChangeStaffRole(role)
+  }
+  class MembershipType {
+    +string Name
+    +int MaxLoans
+    +int LoanPeriodDays
+    +int MaxRenewals
+    +bool IsActive
+    +CalculateDueDate(start, calendar) DateOnly
+    +EnsureBelowLoanLimit(activeLoans)
+  }
+  class Member {
+    +string MemberCode
+    +string FullName
+    +string? Email
+    +string? Phone
+    +DateOnly CardExpiryDate
+    +DateOnly RegisteredOn
+    +bool IsActive
+    +IsCardValid(today) bool
+    +EnsureCanBorrow(today, outstanding, policy)
+    +ExtendCard(newExpiry)
+    +LinkAccount(accountId)
+    +Deactivate()
+  }
+  class Title {
+    +string? Isbn
+    +string Name
+    +int? PublicationYear
+    +string? Description
+    +bool IsActive
+    +Update(...)
+    +Deactivate()
+  }
+  class Author {
+    +string Name
+  }
+  class TitleAuthor {
+    +int Position
+  }
+  class Publisher {
+    +string Name
+  }
+  class Category {
+    +string Name
+  }
+  class EResource {
+    +string Label
+    +string Url
+  }
+  class Copy {
+    +string Barcode
+    +string Location
+    +CopyStatus Status
+    +CheckOut()
+    +CheckOutHeldCopy()
+    +CheckIn()
+    +PlaceOnHold()
+    +ReleaseHold()
+    +ChangeStatus(newStatus)
+  }
+  class Loan {
+    +DateTime LoanDate
+    +DateOnly DueDate
+    +DateTime? ReturnedAt
+    +int RenewalCount
+    +bool IsOpen
+    +IsOverdue(today) bool
+    +EnsureCanBeRenewed(maxRenewals, today)
+    +Renew(newDue, maxRenewals, today)
+    +Close(returnedAt, staffId)
+  }
+  class Reservation {
+    +DateTime ReservedAt
+    +ReservationStatus Status
+    +DateOnly? HoldExpiresOn
+    +bool IsActive
+    +PlaceHold(copyId, expiresOn)
+    +IsHeldFor(copyId) bool
+    +IsHoldExpired(today) bool
+    +Fulfil(now)
+    +Cancel(now)
+    +Expire(now)
+  }
+  class Fine {
+    +int OverdueDays
+    +decimal Amount
+    +decimal AmountPaid
+    +decimal Balance
+    +ApplyPayment(amount, now, staffId) Payment
+  }
+  class Payment {
+    +decimal Amount
+    +DateTime PaidAt
+  }
+  class FinePolicy {
+    +decimal DailyRate
+    +decimal MaxFinePerLoan
+    +decimal DebtThreshold
+    +int HoldPeriodDays
+    +bool ClosedOnSundays
+    +CalculateFine(chargeableDays) decimal
+    +IsAboveDebtThreshold(amount) bool
+  }
+  class Holiday {
+    +DateOnly Date
+    +string Description
+  }
+  class LibraryCalendar {
+    <<domain service>>
+    +IsOpeningDay(date) bool
+    +FirstOpeningDayOnOrAfter(date) DateOnly
+    +AddOpeningDays(start, n) DateOnly
+    +CountChargeableDays(due, returned) int
+  }
+  Role "1" -- "*" UserAccount
+  UserAccount "0..1" -- "0..1" Member : login
+  MembershipType "1" -- "*" Member
+  Title "1" -- "*" TitleAuthor
+  Author "1" -- "*" TitleAuthor
+  Publisher "0..1" -- "*" Title
+  Category "0..1" -- "*" Title
+  Title "1" -- "*" EResource
+  Title "1" -- "*" Copy
+  Copy "1" -- "*" Loan
+  Member "1" -- "*" Loan
+  Title "1" -- "*" Reservation
+  Member "1" -- "*" Reservation
+  Copy "0..1" -- "*" Reservation : held copy
+  Loan "1" -- "0..1" Fine
+  Member "1" -- "*" Fine
+  Fine "1" -- "*" Payment
+  FinePolicy ..> Fine : computes amount
+  Holiday ..> LibraryCalendar : closing days
+  MembershipType ..> LibraryCalendar : uses
