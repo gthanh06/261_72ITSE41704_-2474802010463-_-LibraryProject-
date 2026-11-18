@@ -280,7 +280,7 @@ internal sealed class Sidebar : Control
         g.SetClip(_itemsArea);
         foreach (var (title, bounds) in _headers)
         {
-            TextRenderer.DrawText(g, title.ToUpperInvariant(), Theme.Fonts.Caption, bounds, Theme.Colors.SidebarTextMuted,
+            TextRenderer.DrawText(g, title, Theme.Fonts.SmallSemibold, bounds, Theme.Colors.SidebarTextMuted,
                 (Draw.SingleLine & ~TextFormatFlags.VerticalCenter) | TextFormatFlags.NoPadding | TextFormatFlags.Bottom);
         }
 
@@ -305,6 +305,9 @@ internal sealed class Sidebar : Control
 
         PaintFooter(g);
         PaintFocus(g);
+
+        using var edge = new Pen(Theme.Colors.SidebarDivider);
+        g.DrawLine(edge, Width - 1, 0, Width - 1, Height);
     }
 
     protected override void Dispose(bool disposing)
@@ -370,7 +373,7 @@ internal sealed class Sidebar : Control
         var iconRect = _collapsed
             ? new Rectangle(bounds.X + (bounds.Width - iconBox) / 2, bounds.Y + (bounds.Height - iconBox) / 2, iconBox, iconBox)
             : new Rectangle(bounds.X + this.Px(Theme.Space.S), bounds.Y + (bounds.Height - iconBox) / 2, iconBox, iconBox);
-        Draw.Glyph(g, item.Glyph, 11.5f, selected ? Theme.Colors.AccentBright : fore, iconRect);
+        Draw.Glyph(g, item.Glyph, 11.5f, selected ? Theme.Colors.Primary : fore, iconRect);
 
         if (_collapsed)
         {
@@ -401,7 +404,7 @@ internal sealed class Sidebar : Control
 
         var height = this.Px(Theme.Size.ControlHeight + 4) - this.Px(16);
         var rect = new RectangleF(this.Px(4), _indicatorY + this.Px(8), this.Px(3), height);
-        Draw.FillRounded(g, Theme.Colors.AccentBright, rect, this.Px(2));
+        Draw.FillRounded(g, Theme.Colors.Primary, rect, this.Px(2));
     }
 
     private void PaintFooter(Graphics g)
@@ -465,7 +468,7 @@ internal sealed class Sidebar : Control
         }
 
         var bounds = _entries[_focus].Bounds;
-        Draw.StrokeRounded(g, Theme.Colors.AccentBright, this.Px(Theme.Size.FocusRingWidth), bounds, this.Px(Theme.Radius.Control));
+        Draw.StrokeRounded(g, Theme.Colors.FocusRing, this.Px(Theme.Size.FocusRingWidth), bounds, this.Px(Theme.Radius.Control));
     }
 
     private void Rebuild(bool animateIndicator)
