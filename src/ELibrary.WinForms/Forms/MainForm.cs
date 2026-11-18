@@ -191,20 +191,25 @@ internal sealed class MainForm : Form
 
     private void Display(string key, ScreenBase screen)
     {
-        _content.SuspendLayout();
-        screen.Visible = true;
-        screen.BringToFront();
-        foreach (var other in _openScreens.Values.Where(s => s != screen))
+        // Swap screens with drawing paused so the old and new screen never show half-painted together.
+        using (AntiFlicker.SuspendDrawing(_content))
         {
-            other.Visible = false;
+            _content.SuspendLayout();
+            screen.Visible = true;
+            screen.BringToFront();
+            foreach (var other in _openScreens.Values.Where(s => s != screen))
+            {
+                other.Visible = false;
+            }
+
+            if (_noScreen != null)
+            {
+                _noScreen.Visible = false;
+            }
+
+            _content.ResumeLayout(true);
         }
 
-        if (_noScreen != null)
-        {
-            _noScreen.Visible = false;
-        }
-
-        _content.ResumeLayout(true);
         _currentKey = key;
         _recentKeys.Remove(key);
         _recentKeys.Add(key);
