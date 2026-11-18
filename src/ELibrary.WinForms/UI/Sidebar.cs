@@ -281,7 +281,7 @@ internal sealed class Sidebar : Control
         foreach (var (title, bounds) in _headers)
         {
             TextRenderer.DrawText(g, title.ToUpperInvariant(), Theme.Fonts.Caption, bounds, Theme.Colors.SidebarTextMuted,
-                Draw.SingleLine | TextFormatFlags.NoPadding | TextFormatFlags.Bottom);
+                (Draw.SingleLine & ~TextFormatFlags.VerticalCenter) | TextFormatFlags.NoPadding | TextFormatFlags.Bottom);
         }
 
         using (var divider = new Pen(Theme.Colors.SidebarDivider))
