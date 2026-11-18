@@ -44,6 +44,7 @@ internal sealed class CatalogueScreen : ScreenBase
     private readonly DataGridView _titles = Ui.Grid();
     private readonly CoverGrid _covers = new() { Dock = DockStyle.Fill, Visible = false };
     private Button? _viewToggle;
+    private bool _selectingTitle;
     private readonly DataGridView _copies = Ui.Grid();
     private readonly DataGridView _links = Ui.Grid();
     private readonly Label _details = new() { AutoSize = true, MaximumSize = new Size(900, 0), Padding = new Padding(0, 4, 0, 4) };
@@ -72,6 +73,11 @@ internal sealed class CatalogueScreen : ScreenBase
         Ui.OnEnter(_search, () => _ = Search());
         _titles.SelectionChanged += (_, _) =>
         {
+            if (_selectingTitle)
+            {
+                return; // SelectTitle syncs the covers and loads the details itself
+            }
+
             _covers.SelectId(Ui.Selected<TitleSummaryDto>(_titles)?.Id);
             LoadDetails();
         };
@@ -332,7 +338,20 @@ internal sealed class CatalogueScreen : ScreenBase
         {
             if (row.Tag is TitleSummaryDto t && t.Id == titleId)
             {
-                _titles.CurrentCell = row.Cells[0];
+                // Setting CurrentCell raises SelectionChanged while CurrentRow is still the old row, so the
+                // handler would read the wrong title; sync the covers and details explicitly instead.
+                _selectingTitle = true;
+                try
+                {
+                    _titles.CurrentCell = row.Cells[0];
+                }
+                finally
+                {
+                    _selectingTitle = false;
+                }
+
+                _covers.SelectId(titleId);
+                LoadDetails(titleId);
                 return;
             }
         }
