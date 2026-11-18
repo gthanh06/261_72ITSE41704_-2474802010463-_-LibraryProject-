@@ -9,58 +9,67 @@ namespace ELibrary.WinForms.UI;
 /// </summary>
 internal static class Theme
 {
+    /// <summary>
+    /// Colour tokens. Each has a light and a dark value; the palette is chosen once at start-up from
+    /// <see cref="ThemePreference"/> (switching restarts the app). Dark values keep the same WCAG contrast goals.
+    /// </summary>
     internal static class Colors
     {
+        /// <summary>True when the dark palette is in use.</summary>
+        public static readonly bool IsDark = ThemePreference.IsDark;
+
         // Surfaces (cool neutral greys, as in Windows 11)
-        public static readonly Color Background = Hex(0xF5F6F8);      // window background
-        public static readonly Color Surface = Hex(0xFFFFFF);         // cards, tables, inputs
-        public static readonly Color SurfaceSunken = Hex(0xF1F3F5);   // table header, hover
-        public static readonly Color RowAlternate = Hex(0xFAFBFC);
-        public static readonly Color Border = Hex(0xE3E6EA);
-        public static readonly Color BorderStrong = Hex(0xCDD2D8);
-        public static readonly Color InputBorder = Hex(0x8B929C);       // 3.2:1 on white (WCAG 1.4.11)
-        public static readonly Color InputBorderHover = Hex(0x5F6670);
+        public static readonly Color Background = Pick(0xF5F6F8, 0x1B1D20);      // window background
+        public static readonly Color Surface = Pick(0xFFFFFF, 0x25282C);         // cards, tables, inputs
+        public static readonly Color SurfaceSunken = Pick(0xF1F3F5, 0x2D3035);   // table header, hover
+        public static readonly Color RowAlternate = Pick(0xFAFBFC, 0x282B2F);
+        public static readonly Color Border = Pick(0xE3E6EA, 0x3A3E44);
+        public static readonly Color BorderStrong = Pick(0xCDD2D8, 0x4A4F56);
+        public static readonly Color InputBorder = Pick(0x8B929C, 0x7D848E);       // 3.2:1 on white (WCAG 1.4.11)
+        public static readonly Color InputBorderHover = Pick(0x5F6670, 0xA3AAB3);
 
         // Text
-        public static readonly Color Text = Hex(0x1F2328);
-        public static readonly Color TextMuted = Hex(0x5B636E);         // 6:1 on white
-        public static readonly Color TextDisabled = Hex(0xA2A8B0);
+        public static readonly Color Text = Pick(0x1F2328, 0xE8EAED);
+        public static readonly Color TextMuted = Pick(0x5B636E, 0xA7AEB7);         // 6:1 on white
+        public static readonly Color TextDisabled = Pick(0xA2A8B0, 0x6B727B);
 
         // Brand
-        public static readonly Color Primary = Hex(0x0F7B5F);         // library green, 5.2:1 on white
-        public static readonly Color PrimaryHover = Hex(0x0C6A52);
-        public static readonly Color PrimaryPressed = Hex(0x095943);
-        public static readonly Color PrimarySoft = Hex(0xE3F2EC);
-        public static readonly Color OnPrimary = Hex(0xFFFFFF);
+        public static readonly Color Primary = Pick(0x0F7B5F, 0x4CC29A);         // library green, 5.2:1 on white
+        public static readonly Color PrimaryHover = Pick(0x0C6A52, 0x5ED0A8);
+        public static readonly Color PrimaryPressed = Pick(0x095943, 0x3BAE88);
+        public static readonly Color PrimarySoft = Pick(0xE3F2EC, 0x1E3A31);
+        public static readonly Color OnPrimary = Pick(0xFFFFFF, 0x0B1D16);
         public static readonly Color Accent = Primary;                 // brand mark, selection indicator
-        public static readonly Color AccentBright = Hex(0x12936F);
+        public static readonly Color AccentBright = Pick(0x12936F, 0x6FD9B4);
 
         // Semantic (text colour on its soft background passes WCAG AA)
-        public static readonly Color Success = Hex(0x1E6B41);
-        public static readonly Color SuccessSoft = Hex(0xE5F4EA);
-        public static readonly Color Info = Hex(0x1F57A4);
-        public static readonly Color InfoSoft = Hex(0xE8EFFB);
-        public static readonly Color Warning = Hex(0x8A5300);
-        public static readonly Color WarningSoft = Hex(0xFDF2DC);
-        public static readonly Color Danger = Hex(0xC42B1C);            // Windows 11 critical red
-        public static readonly Color DangerHover = Hex(0xA32317);
-        public static readonly Color DangerSoft = Hex(0xFDE7E5);
-        public static readonly Color Neutral = Hex(0x4B5563);
-        public static readonly Color NeutralSoft = Hex(0xEEF0F3);
+        public static readonly Color Success = Pick(0x1E6B41, 0x6CCB8F);
+        public static readonly Color SuccessSoft = Pick(0xE5F4EA, 0x1D3326);
+        public static readonly Color Info = Pick(0x1F57A4, 0x7FB0F0);
+        public static readonly Color InfoSoft = Pick(0xE8EFFB, 0x1D2A3D);
+        public static readonly Color Warning = Pick(0x8A5300, 0xF0B45A);
+        public static readonly Color WarningSoft = Pick(0xFDF2DC, 0x3A2E19);
+        public static readonly Color Danger = Pick(0xC42B1C, 0xF07067);            // Windows 11 critical red
+        public static readonly Color DangerHover = Pick(0xA32317, 0xF48A82);
+        public static readonly Color DangerSoft = Pick(0xFDE7E5, 0x3D2220);
+        public static readonly Color Neutral = Pick(0x4B5563, 0xB4BAC2);
+        public static readonly Color NeutralSoft = Pick(0xEEF0F3, 0x30343A);
 
         // Sidebar (light navigation pane; the selected item is tinted with the brand colour)
-        public static readonly Color Sidebar = Hex(0xEEF1F4);
-        public static readonly Color SidebarHover = Hex(0xE3E7EC);
-        public static readonly Color SidebarActive = Hex(0xDDEDE6);
-        public static readonly Color SidebarText = Hex(0x2B3036);
-        public static readonly Color SidebarTextMuted = Hex(0x5F6670);  // 5:1 on the sidebar
-        public static readonly Color SidebarActiveText = Hex(0x1F2328);
-        public static readonly Color SidebarDivider = Hex(0xDDE1E6);
+        public static readonly Color Sidebar = Pick(0xEEF1F4, 0x202326);
+        public static readonly Color SidebarHover = Pick(0xE3E7EC, 0x2A2E33);
+        public static readonly Color SidebarActive = Pick(0xDDEDE6, 0x1F3A31);
+        public static readonly Color SidebarText = Pick(0x2B3036, 0xDADDE1);
+        public static readonly Color SidebarTextMuted = Pick(0x5F6670, 0x9AA1AA);  // 5:1 on the sidebar
+        public static readonly Color SidebarActiveText = Pick(0x1F2328, 0xFFFFFF);
+        public static readonly Color SidebarDivider = Pick(0xDDE1E6, 0x33373C);
 
         // Effects
-        public static readonly Color FocusRing = Hex(0x1F2328);        // dark ring, as Windows 11 draws keyboard focus
-        public static readonly Color Shadow = Hex(0x1F2328);
-        public static readonly Color Overlay = Hex(0x0B0F14);
+        public static readonly Color FocusRing = Pick(0x1F2328, 0xE8EAED);        // dark ring, as Windows 11 draws keyboard focus
+        public static readonly Color Shadow = Pick(0x1F2328, 0x000000);
+        public static readonly Color Overlay = Pick(0x0B0F14, 0x000000);
+
+        private static Color Pick(int light, int dark) => Hex(IsDark ? dark : light);
 
         private static Color Hex(int rgb) => Color.FromArgb(255, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
     }
