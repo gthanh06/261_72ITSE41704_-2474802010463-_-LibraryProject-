@@ -37,6 +37,7 @@ internal sealed class MainForm : Form
         BackColor = Theme.Colors.Background;
         _content.BackColor = Theme.Colors.Background;
         WindowChrome.Apply(this, Theme.Colors.Background);
+        AntiFlicker.CompositeWhileResizing(this);
 
         BuildNavigation(user.Role);
         _sidebar.SetUser(user.FullName, user.Username, $"{user.Role} · {Ui.Date(app.Clock.Today)}");
