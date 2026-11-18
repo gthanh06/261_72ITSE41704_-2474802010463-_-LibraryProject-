@@ -50,6 +50,7 @@ internal sealed class Sidebar : Control
     private bool _collapsed;
     private float _indicatorY = -1;
     private Tween? _indicatorTween;
+    private int? _layoutWidth;
     private string? _tipText;
 
     public Sidebar()
@@ -69,6 +70,9 @@ internal sealed class Sidebar : Control
     public event EventHandler<SidebarItem>? ItemInvoked;
 
     public string BrandText { get; set; } = "E-Library";
+
+    /// <summary>The width the content is laid out for; differs from <see cref="Control.Width"/> only while the rail animates.</summary>
+    private int LayoutWidth => _layoutWidth ?? Width;
 
     public bool Collapsed
     {
@@ -288,7 +292,7 @@ internal sealed class Sidebar : Control
         {
             foreach (var y in _dividers)
             {
-                g.DrawLine(divider, this.Px(16), y, Width - this.Px(16), y);
+                g.DrawLine(divider, this.Px(16), y, LayoutWidth - this.Px(16), y);
             }
         }
 
@@ -330,7 +334,7 @@ internal sealed class Sidebar : Control
             Draw.FillRounded(g, Theme.Colors.Accent, markRect, this.Px(8));
             Draw.Glyph(g, Icons.Library, 12f, Color.White, markRect);
             var textLeft = markRect.Right + this.Px(10);
-            TextRenderer.DrawText(g, BrandText, Theme.Fonts.Brand, new Rectangle(textLeft, markRect.Y - this.Px(1), Width - textLeft - this.Px(48), mark),
+            TextRenderer.DrawText(g, BrandText, Theme.Fonts.Brand, new Rectangle(textLeft, markRect.Y - this.Px(1), LayoutWidth - textLeft - this.Px(48), mark),
                 Theme.Colors.SidebarActiveText, Draw.SingleLine | TextFormatFlags.NoPadding);
         }
 
@@ -411,12 +415,12 @@ internal sealed class Sidebar : Control
     {
         using (var pen = new Pen(Theme.Colors.SidebarDivider))
         {
-            g.DrawLine(pen, 0, _footerTop, Width, _footerTop);
+            g.DrawLine(pen, 0, _footerTop, LayoutWidth, _footerTop);
         }
 
         var avatar = this.Px(36);
         var avatarRect = _collapsed
-            ? new Rectangle((Width - avatar) / 2, _footerTop + this.Px(Theme.Space.S), avatar, avatar)
+            ? new Rectangle((LayoutWidth - avatar) / 2, _footerTop + this.Px(Theme.Space.S), avatar, avatar)
             : new Rectangle(this.Px(Theme.Space.M), _footerTop + this.Px(Theme.Space.M), avatar, avatar);
         using (var brush = new SolidBrush(Avatar.ColorFor(_userKey)))
         {
@@ -433,7 +437,7 @@ internal sealed class Sidebar : Control
 
         if (!_collapsed)
         {
-            var footerButtons = _entries.Where(e => e.Kind == EntryKind.Footer).Select(e => e.Bounds.Left).DefaultIfEmpty(Width).Min();
+            var footerButtons = _entries.Where(e => e.Kind == EntryKind.Footer).Select(e => e.Bounds.Left).DefaultIfEmpty(LayoutWidth).Min();
             var textLeft = avatarRect.Right + this.Px(10);
             var textWidth = footerButtons - textLeft - this.Px(6);
             var line = TextRenderer.MeasureText("Ag", Theme.Fonts.BodySemibold).Height;
@@ -479,8 +483,8 @@ internal sealed class Sidebar : Control
 
         var toggleSize = this.Px(32);
         var toggleRect = _collapsed
-            ? new Rectangle((Width - toggleSize) / 2, this.Px(18), toggleSize, toggleSize)
-            : new Rectangle(Width - toggleSize - this.Px(Theme.Space.S), this.Px(18), toggleSize, toggleSize);
+            ? new Rectangle((LayoutWidth - toggleSize) / 2, this.Px(18), toggleSize, toggleSize)
+            : new Rectangle(LayoutWidth - toggleSize - this.Px(Theme.Space.S), this.Px(18), toggleSize, toggleSize);
         _entries.Add(new Entry(EntryKind.Toggle, null, toggleRect));
 
         // Footer (fixed at the bottom)
@@ -493,17 +497,17 @@ internal sealed class Sidebar : Control
         for (var i = 0; i < _footer.Count; i++)
         {
             var rect = _collapsed
-                ? new Rectangle((Width - footerButton) / 2,
+                ? new Rectangle((LayoutWidth - footerButton) / 2,
                     _footerTop + this.Px(Theme.Space.S) + this.Px(36) + this.Px(Theme.Space.Xs) + i * (footerButton + this.Px(4)),
                     footerButton, footerButton)
-                : new Rectangle(Width - this.Px(Theme.Space.S) - (_footer.Count - i) * (footerButton + this.Px(2)),
+                : new Rectangle(LayoutWidth - this.Px(Theme.Space.S) - (_footer.Count - i) * (footerButton + this.Px(2)),
                     _footerTop + (footerHeight - footerButton) / 2, footerButton, footerButton);
             footerEntries.Add(new Entry(EntryKind.Footer, _footer[i], rect));
         }
 
         // Items (scrollable between the brand and the footer)
         var top = this.Px(68);
-        _itemsArea = new Rectangle(0, top, Width, Math.Max(0, _footerTop - top));
+        _itemsArea = new Rectangle(0, top, LayoutWidth, Math.Max(0, _footerTop - top));
         var itemHeight = this.Px(Theme.Size.ControlHeight + 4);
         var margin = _collapsed ? this.Px(10) : this.Px(Theme.Space.S);
         var firstItem = _entries.Count;
@@ -522,13 +526,13 @@ internal sealed class Sidebar : Control
             else if (title != null)
             {
                 var headerHeight = this.Px(gi == 0 ? 24 : 40);
-                _headers.Add((title, new Rectangle(this.Px(Theme.Space.L), y, Width - this.Px(Theme.Space.L) * 2, headerHeight - this.Px(6))));
+                _headers.Add((title, new Rectangle(this.Px(Theme.Space.L), y, LayoutWidth - this.Px(Theme.Space.L) * 2, headerHeight - this.Px(6))));
                 y += headerHeight;
             }
 
             foreach (var item in items)
             {
-                _entries.Add(new Entry(EntryKind.Item, item, new Rectangle(margin, y, Width - margin * 2, itemHeight)));
+                _entries.Add(new Entry(EntryKind.Item, item, new Rectangle(margin, y, LayoutWidth - margin * 2, itemHeight)));
                 y += itemHeight + this.Px(2);
             }
         }
