@@ -2,6 +2,7 @@ using ELibrary.Business.Security;
 using ELibrary.DataAccess.Seeding;
 using ELibrary.WinForms.Forms;
 using ELibrary.WinForms.Infrastructure;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms;
 
@@ -18,6 +19,7 @@ internal static class Program
         Application.SetHighDpiMode(HighDpiMode.SystemAware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        Application.SetDefaultFont(Theme.Fonts.Body);
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ErrorHandler.Show(null, e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => ErrorLog.Write(e.ExceptionObject as Exception);
@@ -29,7 +31,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "E-Library – Configuration error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageDialog.Inform(null, "Configuration error", ex.Message, Tone.Danger);
             return;
         }
 
@@ -41,10 +43,9 @@ internal static class Program
 
         if (!DatabaseInitializer.CanConnect(settings.ConnectionString))
         {
-            MessageBox.Show(
+            MessageDialog.Inform(null, "Database not available",
                 "SQL Server cannot be reached.\n\nCheck that SQL Server (Express) is running and that the connection string in " +
-                $"{AppSettings.FileName} is correct:\n\n{settings.ConnectionString}",
-                "E-Library – Database not available", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                $"{AppSettings.FileName} is correct:\n\n{settings.ConnectionString}", Tone.Danger);
             return;
         }
 
@@ -62,8 +63,8 @@ internal static class Program
         catch (Exception ex)
         {
             ErrorLog.Write(ex);
-            MessageBox.Show($"The database could not be prepared: {ex.Message}\n\nDetails are in {ErrorLog.Folder}.",
-                "E-Library – Start-up error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageDialog.Inform(null, "Start-up error",
+                $"The database could not be prepared: {ex.Message}\n\nDetails are in {ErrorLog.Folder}.", Tone.Danger);
             return;
         }
 
@@ -90,7 +91,7 @@ internal static class Program
     {
         var script = DatabaseInitializer.GenerateCreateScript(connectionString);
         File.WriteAllText(path, script);
-        MessageBox.Show($"The database script was written to {Path.GetFullPath(path)}.", "E-Library");
+        MessageDialog.Inform(null, "Script exported", $"The database script was written to {Path.GetFullPath(path)}.", Tone.Success);
     }
 
     private sealed class WaitCursorScope : IDisposable

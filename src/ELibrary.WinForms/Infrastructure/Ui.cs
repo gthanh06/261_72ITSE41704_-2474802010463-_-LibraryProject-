@@ -1,4 +1,5 @@
 using System.Globalization;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Infrastructure;
 
@@ -12,18 +13,27 @@ internal sealed record GridColumn<T>(string Header, Func<T, object?> Value, floa
         new(header, x => value(x), weight, Ui.MoneyFormat);
 }
 
-/// <summary>Small helpers so that all screens look and behave the same.</summary>
+/// <summary>
+/// Small helpers so that all screens look and behave the same. Colours, fonts and sizes come from
+/// <see cref="Theme"/>; the controls are the themed ones from <c>ELibrary.WinForms.UI</c>.
+/// </summary>
 internal static class Ui
 {
     public const string DateFormat = "dd/MM/yyyy";
     public const string MoneyFormat = "#,0";
 
-    public static readonly Font TitleFont = new("Segoe UI", 14F, FontStyle.Bold);
-    public static readonly Font BoldFont = new("Segoe UI", 9.75F, FontStyle.Bold);
-    public static readonly Color OverdueColor = Color.MistyRose;
-    public static readonly Color HighlightColor = Color.LightYellow;
-    public static readonly Color OkColor = Color.DarkGreen;
-    public static readonly Color ErrorColor = Color.Firebrick;
+    public static readonly Font TitleFont = Theme.Fonts.PageTitle;
+    public static readonly Font BoldFont = Theme.Fonts.BodySemibold;
+    public static readonly Color OverdueColor = Theme.Colors.DangerSoft;
+    public static readonly Color HighlightColor = Theme.Colors.WarningSoft;
+    public static readonly Color OkColor = Theme.Colors.Success;
+    public static readonly Color ErrorColor = Theme.Colors.Danger;
+
+    /// <summary>Row colour for records that are inactive (muted, not a warning).</summary>
+    public static readonly Color InactiveRowColor = Theme.Colors.NeutralSoft;
+
+    /// <summary>Row colour for items that exist but are not available right now.</summary>
+    public static readonly Color UnavailableRowColor = Theme.Colors.SurfaceSunken;
 
     public static string Date(DateOnly date) => date.ToString(DateFormat, CultureInfo.InvariantCulture);
 
@@ -34,47 +44,67 @@ internal static class Ui
 
     public static string Money(decimal amount) => Domain.Common.Money.Format(amount);
 
-    public static Label Label(string text, bool bold = false) => new()
+    public static Label Label(string text, bool bold = false)
     {
-        Text = text,
-        AutoSize = true,
-        Margin = new Padding(3, 8, 3, 3),
-        Font = bold ? BoldFont : null
-    };
+        var label = new Label
+        {
+            Text = text,
+            AutoSize = true,
+            ForeColor = bold ? Theme.Colors.Text : Theme.Colors.TextMuted,
+            Font = bold ? BoldFont : Theme.Fonts.SmallSemibold
+        };
+        // Centred on the 34 px controls of a row.
+        label.Margin = label.Px(Theme.Space.Xxs, 13, Theme.Space.Xxs, Theme.Space.Xxs);
+        return label;
+    }
 
-    public static TextBox TextBox(int width = 200, bool password = false) => new()
+    public static TextBox TextBox(int width = 200, bool password = false)
     {
-        Width = width,
-        Margin = new Padding(3, 4, 3, 3),
-        UseSystemPasswordChar = password
-    };
+        var box = new ThemedTextBox { UseSystemPasswordChar = password };
+        box.Width = box.Px(width);
+        box.Margin = box.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        return box;
+    }
 
-    public static Button Button(string text, Action onClick, int width = 120)
+    public static Button Button(string text, Action onClick, int width = 120, ButtonVariant variant = ButtonVariant.Secondary)
     {
-        var button = new Button { Text = text, Width = width, Height = 30, Margin = new Padding(3) };
+        var button = new ThemedButton(text, variant);
+        button.MinimumSize = new Size(button.Px(width), 0);
         button.Click += (_, _) => onClick();
         return button;
     }
 
-    public static NumericUpDown Number(decimal min, decimal max, decimal value, decimal increment = 1, int width = 90) => new()
+    public static NumericUpDown Number(decimal min, decimal max, decimal value, decimal increment = 1, int width = 90)
     {
-        Minimum = min,
-        Maximum = max,
-        Value = value,
-        Increment = increment,
-        Width = width,
-        ThousandsSeparator = true,
-        Margin = new Padding(3, 4, 3, 3)
-    };
+        var number = new NumericUpDown
+        {
+            Minimum = min,
+            Maximum = max,
+            Value = value,
+            Increment = increment,
+            ThousandsSeparator = true,
+            Font = Theme.Fonts.Body,
+            ForeColor = Theme.Colors.Text
+        };
+        number.Width = number.Px(width);
+        number.Margin = number.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        return number;
+    }
 
-    public static DateTimePicker DatePicker(DateOnly value, int width = 130) => new()
+    public static DateTimePicker DatePicker(DateOnly value, int width = 130)
     {
-        Format = DateTimePickerFormat.Custom,
-        CustomFormat = DateFormat,
-        Value = value.ToDateTime(TimeOnly.MinValue),
-        Width = width,
-        Margin = new Padding(3, 4, 3, 3)
-    };
+        var picker = new DateTimePicker
+        {
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = DateFormat,
+            Value = value.ToDateTime(TimeOnly.MinValue),
+            Font = Theme.Fonts.Body,
+            CalendarFont = Theme.Fonts.Body
+        };
+        picker.Width = picker.Px(width);
+        picker.Margin = picker.Px(Theme.Space.Xxs, 9, Theme.Space.Xxs, Theme.Space.Xxs);
+        return picker;
+    }
 
     public static DateOnly ToDateOnly(DateTimePicker picker) => DateOnly.FromDateTime(picker.Value);
 
@@ -86,9 +116,9 @@ internal static class Ui
             Dock = DockStyle.Top,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            WrapContents = true,
-            Padding = new Padding(0, 2, 0, 2)
+            WrapContents = true
         };
+        row.Padding = row.Px(0, 0, 0, Theme.Space.Xs);
         row.Controls.AddRange(controls);
         return row;
     }
@@ -116,9 +146,9 @@ internal static class Ui
             RowCount = fields.Length,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Dock = DockStyle.Top,
-            Padding = new Padding(0, 4, 0, 4)
+            Dock = DockStyle.Top
         };
+        table.Padding = table.Px(0, Theme.Space.Xxs, 0, Theme.Space.Xxs);
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         for (var i = 0; i < fields.Length; i++)
@@ -168,11 +198,9 @@ internal static class Ui
             MultiSelect = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             RowHeadersVisible = false,
-            BackgroundColor = SystemColors.Window,
-            BorderStyle = BorderStyle.FixedSingle,
             Dock = DockStyle.Fill
         };
-        grid.DefaultCellStyle.SelectionBackColor = Color.SteelBlue;
+        GridStyle.Apply(grid);
         return grid;
     }
 
@@ -214,7 +242,7 @@ internal static class Ui
         var rows = new List<DataGridViewRow>();
         foreach (var item in items)
         {
-            var row = new DataGridViewRow { Tag = item };
+            var row = new DataGridViewRow { Tag = item, Height = grid.RowTemplate.Height };
             row.CreateCells(grid, columns.Select(c => c.Value(item)).ToArray());
             var color = rowColor?.Invoke(item);
             if (color.HasValue)
@@ -235,7 +263,8 @@ internal static class Ui
     /// </summary>
     public static SplitContainer Split(Orientation orientation, double ratio)
     {
-        var split = new SplitContainer { Orientation = orientation, Dock = DockStyle.Fill };
+        var split = new SplitContainer { Orientation = orientation, Dock = DockStyle.Fill, BackColor = Theme.Colors.Background };
+        split.SplitterWidth = split.Px(Theme.Space.M);
         var placed = false;
         split.SizeChanged += (_, _) =>
         {
@@ -254,13 +283,13 @@ internal static class Ui
     public static T? Selected<T>(DataGridView grid) where T : class => grid.CurrentRow?.Tag as T;
 
     public static bool Confirm(IWin32Window owner, string message) =>
-        MessageBox.Show(owner, message, "E-Library", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        MessageDialog.Confirm(owner, "Please confirm", message, "Yes", "No");
 
     public static void Info(IWin32Window owner, string message) =>
-        MessageBox.Show(owner, message, "E-Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageDialog.Inform(owner, "Information", message, Tone.Info);
 
     public static void Warn(IWin32Window owner, string message) =>
-        MessageBox.Show(owner, message, "E-Library", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        MessageDialog.Inform(owner, "Check this first", message, Tone.Warning);
 
     /// <summary>Runs Enter-key actions on a text box (barcode scanners also send Enter).</summary>
     public static void OnEnter(TextBox box, Action action)

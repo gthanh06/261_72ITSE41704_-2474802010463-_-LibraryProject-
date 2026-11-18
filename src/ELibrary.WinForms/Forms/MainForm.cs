@@ -2,19 +2,28 @@ using ELibrary.Domain.Enums;
 using ELibrary.WinForms.Dialogs;
 using ELibrary.WinForms.Infrastructure;
 using ELibrary.WinForms.Screens;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Forms;
 
 /// <summary>
-/// Main window. The menu is built from the user's role (FR-01); each screen opens in a tab. The menu
-/// is only a convenience — every service method checks the role again (NFR-04).
+/// Main window. The sidebar is built from the user's role (FR-01); a screen is created the first time it is
+/// opened and kept, so switching back keeps its state and reloads its data. The sidebar is only a
+/// convenience — every service method checks the role again (NFR-04).
 /// </summary>
 internal sealed class MainForm : Form
 {
     private readonly AppServices _app;
-    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill, Padding = new Point(12, 4) };
-    private readonly Dictionary<string, TabPage> _openTabs = new();
-    private bool _opening;
+    private readonly Sidebar _sidebar = new();
+    private readonly Panel _content = new() { Dock = DockStyle.Fill };
+    private readonly Dictionary<string, ScreenBase> _openScreens = new();
+    private readonly List<string> _recentKeys = new();
+    private readonly Dictionary<string, Action> _actions = new();
+    private readonly Dictionary<Keys, Action> _shortcuts = new();
+    private readonly Dictionary<string, string> _sections = new();
+    private EmptyState? _noScreen;
+    private string? _currentKey;
+    private bool? _narrow;
 
     public MainForm(AppServices app)
     {
@@ -24,101 +33,112 @@ internal sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(1280, 800);
         MinimumSize = new Size(1000, 640);
-        Font = new Font("Segoe UI", 9.75F);
+        Font = Theme.Fonts.Body;
+        BackColor = Theme.Colors.Background;
+        _content.BackColor = Theme.Colors.Background;
 
-        var menu = BuildMenu(user.Role);
-        var status = new StatusStrip();
-        status.Items.Add(new ToolStripStatusLabel($"Logged in as {user.Username} – {user.Role}"));
-        status.Items.Add(new ToolStripStatusLabel(Ui.Date(app.Clock.Today)) { Spring = true, TextAlign = ContentAlignment.MiddleRight });
-
-        // Switching back to an open tab reloads its data (a new tab is loaded by Open).
-        _tabs.SelectedIndexChanged += (_, _) =>
+        BuildNavigation(user.Role);
+        _sidebar.SetUser(user.FullName, user.Username, $"{user.Role} · {Ui.Date(app.Clock.Today)}");
+        _sidebar.ItemInvoked += (_, item) =>
         {
-            if (!_opening)
+            if (_actions.TryGetValue(item.Key, out var action))
             {
-                (_tabs.SelectedTab?.Controls.OfType<ScreenBase>().FirstOrDefault())?.RefreshData();
+                action();
             }
         };
 
-        Controls.Add(_tabs);
-        Controls.Add(status);
-        Controls.Add(menu);
-        MainMenuStrip = menu;
+        Controls.Add(_content);
+        Controls.Add(_sidebar);
 
-        Shown += (_, _) => OpenHomeScreen(user.Role);
+        Resize += (_, _) => AdaptToWidth();
+        Shown += (_, _) =>
+        {
+            AdaptToWidth();
+            OpenHomeScreen(user.Role);
+        };
     }
 
     /// <summary>True when the user chose "Log out" (the program then shows the login window again).</summary>
     public bool LoggedOut { get; private set; }
 
-    private MenuStrip BuildMenu(RoleCode role)
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        var menu = new MenuStrip();
+        if (_shortcuts.TryGetValue(keyData, out var action))
+        {
+            action();
+            return true;
+        }
 
-        var catalogue = new ToolStripMenuItem("&Catalogue");
-        catalogue.DropDownItems.Add(Item("Search catalogue", () => Open("catalogue", () => new CatalogueScreen(_app)), Keys.Control | Keys.F));
-        menu.Items.Add(catalogue);
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void BuildNavigation(RoleCode role)
+    {
+        AddGroup("Library", ScreenItem("catalogue", "Catalogue", Icons.Library, Keys.Control | Keys.F, () => new CatalogueScreen(_app)));
 
         if (role == RoleCode.Librarian)
         {
-            var circulation = new ToolStripMenuItem("C&irculation");
-            circulation.DropDownItems.Add(Item("Check out", () => Open("checkout", () => new CheckoutScreen(_app)), Keys.F2));
-            circulation.DropDownItems.Add(Item("Return", () => Open("return", () => new ReturnScreen(_app)), Keys.F3));
-            circulation.DropDownItems.Add(Item("Loans and renewals", () => Open("loans", () => new LoansScreen(_app)), Keys.F4));
-            circulation.DropDownItems.Add(Item("Holds (reservations ready for pickup)", () => Open("holds", () => new HoldsScreen(_app)), Keys.F5));
-            circulation.DropDownItems.Add(Item("Fines and payments", () => Open("fines", () => new FinesScreen(_app, memberMode: false)), Keys.F6));
-            menu.Items.Add(circulation);
-
-            var members = new ToolStripMenuItem("&Members");
-            members.DropDownItems.Add(Item("Members", () => Open("members", () => new MembersScreen(_app)), Keys.F7));
-            menu.Items.Add(members);
+            AddGroup("Circulation",
+                ScreenItem("checkout", "Check out", Icons.CheckOut, Keys.F2, () => new CheckoutScreen(_app)),
+                ScreenItem("return", "Return", Icons.Return, Keys.F3, () => new ReturnScreen(_app)),
+                ScreenItem("loans", "Loans & renewals", Icons.Loans, Keys.F4, () => new LoansScreen(_app)),
+                ScreenItem("holds", "Holds", Icons.Holds, Keys.F5, () => new HoldsScreen(_app)),
+                ScreenItem("fines", "Fines & payments", Icons.Fines, Keys.F6, () => new FinesScreen(_app, memberMode: false)));
+            AddGroup("Members", ScreenItem("members", "Members", Icons.Members, Keys.F7, () => new MembersScreen(_app)));
         }
 
         if (role == RoleCode.Member)
         {
-            var mine = new ToolStripMenuItem("My &library");
-            mine.DropDownItems.Add(Item("My loans", () => Open("my-loans", () => new MyLoansScreen(_app)), Keys.F2));
-            mine.DropDownItems.Add(Item("My reservations", () => Open("my-reservations", () => new MyReservationsScreen(_app)), Keys.F3));
-            mine.DropDownItems.Add(Item("My fines", () => Open("my-fines", () => new FinesScreen(_app, memberMode: true)), Keys.F4));
-            menu.Items.Add(mine);
+            AddGroup("My library",
+                ScreenItem("my-loans", "My loans", Icons.Book, Keys.F2, () => new MyLoansScreen(_app)),
+                ScreenItem("my-reservations", "My reservations", Icons.Reservations, Keys.F3, () => new MyReservationsScreen(_app)),
+                ScreenItem("my-fines", "My fines", Icons.Fines, Keys.F4, () => new FinesScreen(_app, memberMode: true)));
         }
 
         if (role is RoleCode.Administrator or RoleCode.Librarian)
         {
-            var reports = new ToolStripMenuItem("&Reports");
-            reports.DropDownItems.Add(Item("Reports", () => Open("reports", () => new ReportsScreen(_app)), Keys.F8));
-            menu.Items.Add(reports);
+            AddGroup("Reports", ScreenItem("reports", "Reports", Icons.Reports, Keys.F8, () => new ReportsScreen(_app)));
         }
 
         if (role == RoleCode.Administrator)
         {
-            var admin = new ToolStripMenuItem("&Administration");
-            admin.DropDownItems.Add(Item("User accounts", () => Open("accounts", () => new AccountsScreen(_app)), null));
-            admin.DropDownItems.Add(Item("Settings, holidays and backup", () => Open("settings", () => new SettingsScreen(_app)), null));
-            menu.Items.Add(admin);
+            AddGroup("Administration",
+                ScreenItem("accounts", "User accounts", Icons.Accounts, null, () => new AccountsScreen(_app)),
+                ScreenItem("settings", "Settings", Icons.Settings, null, () => new SettingsScreen(_app)));
         }
 
-        var account = new ToolStripMenuItem("&Account");
-        account.DropDownItems.Add(Item("Close current tab", CloseCurrentTab, Keys.Control | Keys.W));
-        account.DropDownItems.Add(new ToolStripSeparator());
-        account.DropDownItems.Add(Item("Change password…", ChangePassword, null));
-        account.DropDownItems.Add(Item("Log out", LogOut, null));
-        account.DropDownItems.Add(Item("Exit", Close, null));
-        menu.Items.Add(account);
-
-        return menu;
+        _sidebar.AddFooterItems(
+            Command("change-password", "Change password…", Icons.Password, ChangePassword),
+            Command("logout", "Log out", Icons.SignOut, LogOut));
+        _shortcuts[Keys.Control | Keys.W] = CloseCurrentScreen;
     }
 
-    private static ToolStripMenuItem Item(string text, Action action, Keys? shortcut)
+    private void AddGroup(string title, params SidebarItem[] items)
     {
-        var item = new ToolStripMenuItem(text);
-        item.Click += (_, _) => action();
-        if (shortcut.HasValue)
+        foreach (var item in items)
         {
-            item.ShortcutKeys = shortcut.Value;
+            _sections[item.Key] = title;
         }
 
-        return item;
+        _sidebar.AddGroup(title, items);
+    }
+
+    private SidebarItem ScreenItem(string key, string text, string glyph, Keys? shortcut, Func<ScreenBase> create)
+    {
+        _actions[key] = () => Open(key, create);
+        if (shortcut.HasValue)
+        {
+            _shortcuts[shortcut.Value] = _actions[key];
+        }
+
+        var shortcutText = shortcut.HasValue ? new KeysConverter().ConvertToString(shortcut.Value) : null;
+        return new SidebarItem(key, text, glyph, shortcutText);
+    }
+
+    private SidebarItem Command(string key, string text, string glyph, Action action)
+    {
+        _actions[key] = action;
+        return new SidebarItem(key, text, glyph);
     }
 
     private void OpenHomeScreen(RoleCode role)
@@ -137,31 +157,28 @@ internal sealed class MainForm : Form
         }
     }
 
+    /// <summary>Shows the screen for <paramref name="key"/>, creating it on first use; a screen shown again reloads its data.</summary>
     private void Open(string key, Func<ScreenBase> create)
     {
-        if (_openTabs.TryGetValue(key, out var existing))
+        if (_openScreens.TryGetValue(key, out var existing))
         {
-            _tabs.SelectedTab = existing;
+            if (key != _currentKey)
+            {
+                Display(key, existing);
+                existing.RefreshData();
+            }
+
             return;
         }
 
         try
         {
             var screen = create();
-            var page = new TabPage(screen.ScreenTitle) { Tag = key };
-            page.Controls.Add(screen);
-            _opening = true;
-            try
-            {
-                _tabs.TabPages.Add(page);
-                _openTabs[key] = page;
-                _tabs.SelectedTab = page;
-            }
-            finally
-            {
-                _opening = false;
-            }
-
+            screen.Section = _sections.GetValueOrDefault(key);
+            screen.Visible = false;
+            _content.Controls.Add(screen);
+            _openScreens[key] = screen;
+            Display(key, screen);
             screen.RefreshData();
         }
         catch (Exception ex)
@@ -170,16 +187,74 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void CloseCurrentTab()
+    private void Display(string key, ScreenBase screen)
     {
-        if (_tabs.SelectedTab is not { } page)
+        _content.SuspendLayout();
+        screen.Visible = true;
+        screen.BringToFront();
+        foreach (var other in _openScreens.Values.Where(s => s != screen))
+        {
+            other.Visible = false;
+        }
+
+        if (_noScreen != null)
+        {
+            _noScreen.Visible = false;
+        }
+
+        _content.ResumeLayout(true);
+        _currentKey = key;
+        _recentKeys.Remove(key);
+        _recentKeys.Add(key);
+        _sidebar.SelectedKey = key;
+        screen.SelectNextControl(null, true, true, true, false);
+    }
+
+    /// <summary>Ctrl+W: closes the current screen and returns to the one used before it.</summary>
+    private void CloseCurrentScreen()
+    {
+        if (_currentKey == null || !_openScreens.Remove(_currentKey, out var screen))
         {
             return;
         }
 
-        _openTabs.Remove((string)page.Tag!);
-        _tabs.TabPages.Remove(page);
-        page.Dispose();
+        _recentKeys.Remove(_currentKey);
+        _content.Controls.Remove(screen);
+        screen.Dispose();
+        _currentKey = null;
+
+        if (_recentKeys.Count > 0)
+        {
+            var previous = _recentKeys[^1];
+            var previousScreen = _openScreens[previous];
+            Display(previous, previousScreen);
+            previousScreen.RefreshData();
+            return;
+        }
+
+        _sidebar.SelectedKey = null;
+        _noScreen ??= new EmptyState(Icons.Library, "No screen open", "Choose a destination in the sidebar to continue.")
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Theme.Colors.Background
+        };
+        if (!_content.Controls.Contains(_noScreen))
+        {
+            _content.Controls.Add(_noScreen);
+        }
+
+        _noScreen.Visible = true;
+    }
+
+    /// <summary>Collapses the sidebar to icons on narrow windows (and expands it again when there is room).</summary>
+    private void AdaptToWidth()
+    {
+        var narrow = ClientSize.Width < this.Px(1100);
+        if (_narrow != narrow)
+        {
+            _narrow = narrow;
+            _sidebar.Collapsed = narrow;
+        }
     }
 
     private void ChangePassword()

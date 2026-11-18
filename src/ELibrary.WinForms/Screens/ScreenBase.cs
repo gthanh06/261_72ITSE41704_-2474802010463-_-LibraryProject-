@@ -1,38 +1,53 @@
+using ELibrary.Domain.Exceptions;
 using ELibrary.WinForms.Infrastructure;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Screens;
 
 /// <summary>
-/// Base of every screen shown in a tab: a title, a status line and a common way to run service calls.
-/// Screens only read controls, call one service method and display the result — no business rules.
+/// Base of every screen shown in the main window: a page header, a status line and a common way to run
+/// service calls. Screens only read controls, call one service method and display the result — no business rules.
 /// </summary>
 internal abstract class ScreenBase : UserControl
 {
-    private readonly Label _title;
-    private readonly Label _status;
+    private readonly PageHeader _header;
+    private readonly StatusLine _status;
 
     protected ScreenBase(AppServices app, string title)
     {
         App = app;
         ScreenTitle = title;
         Dock = DockStyle.Fill;
-        Padding = new Padding(12);
-        _title = new Label { Text = title, Font = Ui.TitleFont, AutoSize = true, Padding = new Padding(0, 0, 0, 8) };
-        _status = new Label { AutoSize = false, Height = 28, TextAlign = ContentAlignment.MiddleLeft };
+        BackColor = Theme.Colors.Background;
+        ForeColor = Theme.Colors.Text;
+        Font = Theme.Fonts.Body;
+        Padding = this.Px(Theme.Space.Xl, Theme.Space.L, Theme.Space.Xl, Theme.Space.Xs);
+        _header = new PageHeader(title);
+        _status = new StatusLine();
     }
 
     public string ScreenTitle { get; }
 
+    /// <summary>The small label above the title (the sidebar group, e.g. "Circulation"). Display only.</summary>
+    public string? Section
+    {
+        get => _header.Section;
+        set => _header.Section = value;
+    }
+
     protected AppServices App { get; }
 
-    /// <summary>Called when the tab is opened or selected again; screens reload their data here.</summary>
+    /// <summary>The page header, for screens that add a description or header actions.</summary>
+    protected PageHeader Header => _header;
+
+    /// <summary>Called when the screen is opened or shown again; screens reload their data here.</summary>
     public virtual void RefreshData()
     {
     }
 
-    /// <summary>Lays out the screen: title, <paramref name="tops"/>, then <paramref name="body"/>, then the status line.</summary>
+    /// <summary>Lays out the screen: header, <paramref name="tops"/>, then <paramref name="body"/>, then the status line.</summary>
     protected void Compose(Control body, params Control[] tops) =>
-        Ui.Stack(this, body, _status, new Control[] { _title }.Concat(tops).ToArray());
+        Ui.Stack(this, body, _status, new Control[] { _header }.Concat(tops).ToArray());
 
     /// <summary>Moves the keyboard focus once the screen is on screen (safe before the window exists).</summary>
     protected void FocusLater(Control control)
@@ -43,13 +58,16 @@ internal abstract class ScreenBase : UserControl
         }
     }
 
-    protected void SetStatus(string text, bool isError = false)
-    {
-        _status.Text = text;
-        _status.ForeColor = isError ? Ui.ErrorColor : Ui.OkColor;
-    }
+    protected void SetStatus(string text, bool isError = false) =>
+        _status.ShowMessage(text, isError ? Tone.Danger : Tone.Success);
 
-    /// <summary>Runs a service call; on failure shows the reason and returns false.</summary>
+    /// <summary>Shows a short notification in the corner of the main window.</summary>
+    protected void Notify(Tone tone, string title, string? message = null) => Toasts.Show(this, tone, title, message);
+
+    /// <summary>
+    /// Runs a service call; on failure shows the reason and returns false. Expected errors (validation,
+    /// business rules) appear in the status line and as a notification; unexpected errors open a dialog.
+    /// </summary>
     protected bool Run(Action action)
     {
         try
@@ -60,8 +78,17 @@ internal abstract class ScreenBase : UserControl
         }
         catch (Exception ex)
         {
-            SetStatus(ErrorHandler.Describe(ex), isError: true);
-            ErrorHandler.Show(FindForm(), ex);
+            var message = ErrorHandler.Describe(ex);
+            SetStatus(message, isError: true);
+            if (ex is LibraryException and not DataAccessException)
+            {
+                Notify(Tone.Danger, "Could not complete this action", message);
+            }
+            else
+            {
+                ErrorHandler.Show(FindForm(), ex);
+            }
+
             return false;
         }
         finally

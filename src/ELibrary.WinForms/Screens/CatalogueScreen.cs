@@ -160,7 +160,7 @@ internal sealed class CatalogueScreen : ScreenBase
         {
             var started = DateTime.Now;
             var results = App.Catalogue.Search(query);
-            Ui.Fill(_titles, results, TitleColumns, t => t.IsActive ? null : Color.Gainsboro);
+            Ui.Fill(_titles, results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
             var ms = (DateTime.Now - started).TotalMilliseconds;
             SetStatus($"{results.Count} title(s) found in {ms:0} ms.");
         });
@@ -195,7 +195,7 @@ internal sealed class CatalogueScreen : ScreenBase
             }
 
             _details.Text = string.Join(Environment.NewLine, lines);
-            Ui.Fill(_copies, d.Copies, _copyColumns, c => c.Status == CopyStatus.Available ? null : Color.WhiteSmoke);
+            Ui.Fill(_copies, d.Copies, _copyColumns, c => c.Status == CopyStatus.Available ? null : Ui.UnavailableRowColor);
             Ui.Fill(_links, d.EResources, LinkColumns);
         });
     }
