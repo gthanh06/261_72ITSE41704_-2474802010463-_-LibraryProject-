@@ -1,5 +1,6 @@
 using System.Data.Common;
 using ELibrary.Domain.Exceptions;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Infrastructure;
 
@@ -29,8 +30,8 @@ internal static class ErrorHandler
             ErrorLog.Write(ex);
         }
 
-        MessageBox.Show(owner, Describe(ex), isUserError ? "E-Library" : "E-Library – Error",
-            MessageBoxButtons.OK, isUserError ? MessageBoxIcon.Warning : MessageBoxIcon.Error);
+        MessageDialog.Inform(owner, isUserError ? "Could not complete this action" : "Something went wrong",
+            Describe(ex), isUserError ? Tone.Warning : Tone.Danger);
     }
 
     private static DbException? FindDatabaseError(Exception? ex)
