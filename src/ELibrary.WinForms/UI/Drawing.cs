@@ -111,12 +111,14 @@ internal sealed class Tween : IDisposable
     private readonly Action? _done;
     private readonly int _durationMs;
     private readonly Action<double> _onFrame;
+    private readonly Func<float, float> _ease;
     private double _startedMs;
     private bool _running;
 
-    private Tween(int durationMs, Action<float> step, Action? done)
+    private Tween(int durationMs, Action<float> step, Action? done, Func<float, float>? ease)
     {
         _durationMs = durationMs;
+        _ease = ease ?? Easing.OutCubic;
         _step = step;
         _done = done;
         _onFrame = OnFrame;
@@ -124,8 +126,8 @@ internal sealed class Tween : IDisposable
 
     public bool IsRunning => _running;
 
-    /// <summary>Runs <paramref name="step"/> with an eased progress from 0 to 1.</summary>
-    public static Tween? Run(int durationMs, Action<float> step, Action? done = null)
+    /// <summary>Runs <paramref name="step"/> with an eased progress from 0 to 1 (see <see cref="Easing"/>; out-cubic by default).</summary>
+    public static Tween? Run(int durationMs, Action<float> step, Action? done = null, Func<float, float>? ease = null)
     {
         if (!Theme.Motion.Enabled || durationMs <= 0)
         {
@@ -134,7 +136,7 @@ internal sealed class Tween : IDisposable
             return null;
         }
 
-        var tween = new Tween(durationMs, step, done) { _startedMs = AnimationClock.NowMs };
+        var tween = new Tween(durationMs, step, done, ease) { _startedMs = AnimationClock.NowMs };
         step(0f);
         tween._running = true;
         AnimationClock.Subscribe(tween._onFrame);
@@ -160,7 +162,7 @@ internal sealed class Tween : IDisposable
         }
 
         var t = (float)Math.Min(1.0, (nowMs - _startedMs) / _durationMs);
-        _step(Easing.OutCubic(t));
+        _step(_ease(t));
         if (t >= 1f)
         {
             Stop();
