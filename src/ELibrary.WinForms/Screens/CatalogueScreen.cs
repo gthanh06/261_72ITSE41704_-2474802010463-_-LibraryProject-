@@ -66,7 +66,7 @@ internal sealed class CatalogueScreen : ScreenBase
         }
 
         _field.SelectedItem = CatalogueSearchField.All;
-        Ui.OnEnter(_search, Search);
+        Ui.OnEnter(_search, () => _ = Search());
         _titles.SelectionChanged += (_, _) => LoadDetails();
         _links.CellDoubleClick += (_, _) => OpenLink();
 
@@ -76,7 +76,7 @@ internal sealed class CatalogueScreen : ScreenBase
             searchRow.Controls.Add(_includeInactive);
         }
 
-        searchRow.Controls.Add(Ui.Button("Search", Search, 100));
+        searchRow.Controls.Add(Ui.Button("Search", () => _ = Search(), 100));
 
         var actions = Ui.Row();
         if (_isMember)
@@ -120,7 +120,7 @@ internal sealed class CatalogueScreen : ScreenBase
     {
         if (_titles.Rows.Count == 0)
         {
-            Search();
+            _ = Search();
         }
     }
 
@@ -146,7 +146,8 @@ internal sealed class CatalogueScreen : ScreenBase
         });
     }
 
-    private void Search()
+    /// <summary>Runs the search in the background; the grid shows a skeleton until the results are in.</summary>
+    private Task<bool> Search()
     {
         var categoryId = (_category.SelectedItem as LookupDto)?.Id;
         var query = new CatalogueQuery(
@@ -156,14 +157,19 @@ internal sealed class CatalogueScreen : ScreenBase
             _onlyAvailable.Checked,
             _includeInactive.Checked);
 
-        Run(() =>
-        {
-            var started = DateTime.Now;
-            var results = App.Catalogue.Search(query);
-            Ui.Fill(_titles, results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
-            var ms = (DateTime.Now - started).TotalMilliseconds;
-            SetStatus($"{results.Count} title(s) found in {ms:0} ms.");
-        });
+        return RunAsync("search",
+            () =>
+            {
+                var timer = Stopwatch.StartNew();
+                var results = App.Catalogue.Search(query);
+                return (Results: results, Ms: timer.ElapsedMilliseconds);
+            },
+            found =>
+            {
+                Ui.Fill(_titles, found.Results, TitleColumns, t => t.IsActive ? null : Ui.InactiveRowColor);
+                SetStatus($"{found.Results.Count} title(s) found in {found.Ms:0} ms.");
+            },
+            placeholder: _titles);
     }
 
     private void LoadDetails(int? selectTitleId = null)
@@ -245,19 +251,20 @@ internal sealed class CatalogueScreen : ScreenBase
         });
     }
 
-    private void NewTitle()
+    private async void NewTitle()
     {
         using var dialog = new TitleEditorDialog(App, null);
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
         {
             SetStatus("The title was created. Add its copies with \"Add copy…\".");
             _search.Text = string.Empty;
-            Search();
-            SelectTitle(dialog.SavedTitleId);
+            var savedId = dialog.SavedTitleId;
+            await Search();
+            SelectTitle(savedId);
         }
     }
 
-    private void EditTitle()
+    private async void EditTitle()
     {
         if (!RequireTitle())
         {
@@ -268,8 +275,9 @@ internal sealed class CatalogueScreen : ScreenBase
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
         {
             SetStatus("The title was saved.");
-            Search();
-            SelectTitle(dialog.SavedTitleId);
+            var savedId = dialog.SavedTitleId;
+            await Search();
+            SelectTitle(savedId);
         }
     }
 
@@ -285,7 +293,7 @@ internal sealed class CatalogueScreen : ScreenBase
         }
     }
 
-    private void ToggleActive()
+    private async void ToggleActive()
     {
         if (!RequireTitle())
         {
@@ -300,8 +308,9 @@ internal sealed class CatalogueScreen : ScreenBase
         {
             SetStatus(activate ? "The title is active." : "The title was deactivated.");
             _includeInactive.Checked = true;
-            Search();
-            SelectTitle(_current.Id);
+            var titleId = _current.Id;
+            await Search();
+            SelectTitle(titleId);
         }
     }
 
