@@ -1,14 +1,19 @@
+using ELibrary.Domain.Exceptions;
 using ELibrary.WinForms.Infrastructure;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Dialogs;
 
 /// <summary>
-/// Base of all dialogs: a content area and OK / Cancel buttons. OK calls <see cref="TrySave"/>; the
+/// Base of all dialogs: a heading, a content area and OK / Cancel buttons. OK calls <see cref="TrySave"/>; the
 /// dialog closes only when it returns true, so the user's input is kept after a validation error.
 /// </summary>
 internal abstract class DialogBase : Form
 {
     private readonly Button _ok;
+    private readonly Label _heading;
+    private readonly InlineBanner _banner = new();
+    private Control? _content;
 
     protected DialogBase(string title, string okText = "Save")
     {
@@ -20,19 +25,31 @@ internal abstract class DialogBase : Form
         ShowInTaskbar = false;
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(12);
-        Font = new Font("Segoe UI", 9.75F);
+        BackColor = Theme.Colors.Surface;
+        ForeColor = Theme.Colors.Text;
+        Font = Theme.Fonts.Body;
+        Padding = this.Px(Theme.Space.L, Theme.Space.M, Theme.Space.L, Theme.Space.M);
 
-        _ok = Ui.Button(okText, OnOk, 100);
-        var cancel = new Button { Text = "Cancel", Width = 100, Height = 30, DialogResult = DialogResult.Cancel, Margin = new Padding(3) };
+        _heading = new Label
+        {
+            Text = title,
+            Font = Theme.Fonts.Section,
+            ForeColor = Theme.Colors.Text,
+            AutoSize = true
+        };
+        _heading.Margin = _heading.Px(Theme.Space.Xxs, 0, 0, Theme.Space.M);
+
+        _ok = Ui.Button(okText, OnOk, 100, ButtonVariant.Primary);
+        var cancel = new ThemedButton("Cancel") { DialogResult = DialogResult.Cancel };
+        cancel.MinimumSize = new Size(cancel.Px(100), 0);
         Buttons = new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Anchor = AnchorStyles.Right,
-            Padding = new Padding(0, 10, 0, 0)
+            Anchor = AnchorStyles.Right
         };
+        Buttons.Padding = Buttons.Px(0, Theme.Space.M, 0, 0);
         Buttons.Controls.Add(cancel);
         Buttons.Controls.Add(_ok);
         AcceptButton = _ok;
@@ -45,29 +62,52 @@ internal abstract class DialogBase : Form
     protected void SetContent(Control content)
     {
         content.Dock = DockStyle.None;
-        Controls.Add(Ui.Column(content, Buttons));
+        _content = content;
+        var column = Ui.Column(_heading, _banner, content, Buttons);
+        // Padding only moves docked controls, so place the column inside it explicitly.
+        column.Location = new Point(Padding.Left, Padding.Top);
+        Controls.Add(column);
     }
 
     /// <summary>Validates and saves. Returns false (and shows the reason) when the dialog must stay open.</summary>
     protected abstract bool TrySave();
 
+    /// <summary>
+    /// Runs a service call. Expected errors (validation, business rules) are shown in a banner above the
+    /// fields, so the user can correct the input; unexpected errors open an error dialog.
+    /// </summary>
     protected bool Run(Action action)
     {
         try
         {
             Cursor = Cursors.WaitCursor;
+            _banner.HideMessage();
             action();
             return true;
         }
         catch (Exception ex)
         {
-            ErrorHandler.Show(this, ex);
+            if (ex is LibraryException and not DataAccessException)
+            {
+                _banner.ShowMessage(ErrorHandler.Describe(ex), Tone.Danger, Math.Max(_content?.Width ?? 0, this.Px(320)));
+            }
+            else
+            {
+                ErrorHandler.Show(this, ex);
+            }
+
             return false;
         }
         finally
         {
             Cursor = Cursors.Default;
         }
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        DimOverlay.AttachTo(this);
     }
 
     private void OnOk()
@@ -113,7 +153,7 @@ internal sealed class ChoiceDialog<T> : DialogBase where T : notnull
 
     private ChoiceDialog(string title, string label, IReadOnlyList<T> choices, T initial) : base(title, "OK")
     {
-        _combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240 };
+        _combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240, Font = Theme.Fonts.Body };
         foreach (var choice in choices)
         {
             _combo.Items.Add(choice);
