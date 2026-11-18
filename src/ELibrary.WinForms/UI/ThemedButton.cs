@@ -38,6 +38,7 @@ internal class ThemedButton : Button
     private bool _rippleHeld;
     private Tween? _rippleGrowTween;
     private Tween? _rippleFadeTween;
+    private Action<double>? _spinFrame;
 
     public ThemedButton() : this(string.Empty)
     {
@@ -108,12 +109,11 @@ internal class ThemedButton : Button
             AccessibleDescription = value ? "Working…" : null;
             if (value)
             {
-                _spinner ??= CreateSpinnerTimer();
-                _spinner.Start();
+                StartSpinner();
             }
             else
             {
-                _spinner?.Stop();
+                StopSpinner();
             }
 
             PerformAutoSize();
@@ -250,6 +250,7 @@ internal class ThemedButton : Button
             _hoverTween?.Dispose();
             _rippleGrowTween?.Dispose();
             _rippleFadeTween?.Dispose();
+            StopSpinner();
             _spinner?.Dispose();
         }
 
@@ -400,6 +401,35 @@ internal class ThemedButton : Button
             _hoverProgress = from + (to - from) * p;
             Invalidate();
         });
+    }
+
+    /// <summary>Spins on the shared animation clock (smooth, one turn in about 0.9 s); a slow timer step when motion is off.</summary>
+    private void StartSpinner()
+    {
+        if (Theme.Motion.Enabled)
+        {
+            _spinFrame ??= now =>
+            {
+                _spinnerAngle = (int)(now * 0.4 % 360);
+                Invalidate();
+            };
+            AnimationClock.Unsubscribe(_spinFrame);
+            AnimationClock.Subscribe(_spinFrame);
+            return;
+        }
+
+        _spinner ??= CreateSpinnerTimer();
+        _spinner.Start();
+    }
+
+    private void StopSpinner()
+    {
+        if (_spinFrame != null)
+        {
+            AnimationClock.Unsubscribe(_spinFrame);
+        }
+
+        _spinner?.Stop();
     }
 
     private System.Windows.Forms.Timer CreateSpinnerTimer()
