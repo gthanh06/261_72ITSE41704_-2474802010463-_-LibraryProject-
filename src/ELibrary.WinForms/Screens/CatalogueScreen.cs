@@ -3,6 +3,7 @@ using ELibrary.Business.Dtos;
 using ELibrary.Domain.Enums;
 using ELibrary.WinForms.Dialogs;
 using ELibrary.WinForms.Infrastructure;
+using ELibrary.WinForms.UI;
 
 namespace ELibrary.WinForms.Screens;
 
