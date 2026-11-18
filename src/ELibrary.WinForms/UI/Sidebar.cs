@@ -586,7 +586,7 @@ internal sealed class Sidebar : Control
         {
             _indicatorY = from + (target - from) * p;
             Invalidate();
-        });
+        }, ease: Easing.InOutCubic);
     }
 
     private void EnsureVisible(int index)
