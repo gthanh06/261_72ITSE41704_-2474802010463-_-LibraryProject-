@@ -178,6 +178,7 @@ internal sealed class CatalogueScreen : ScreenBase
         var id = selectTitleId ?? selected?.Id;
         if (id == null)
         {
+            CancelLoad("details");
             _current = null;
             _details.Text = string.Empty;
             Ui.Fill(_copies, Array.Empty<CopyDto>(), _copyColumns);
@@ -185,10 +186,11 @@ internal sealed class CatalogueScreen : ScreenBase
             return;
         }
 
-        Run(() =>
+        // Selecting rows quickly starts several loads; only the last one is shown.
+        _ = RunAsync("details", () => App.Catalogue.GetTitleDetails(id.Value), details =>
         {
-            _current = App.Catalogue.GetTitleDetails(id.Value);
-            var d = _current;
+            _current = details;
+            var d = details;
             var lines = new List<string>
             {
                 $"{d.Name}  —  {string.Join(", ", d.Authors)}",
