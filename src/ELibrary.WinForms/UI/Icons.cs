@@ -53,10 +53,10 @@ internal static class Icons
     public const string Error = "";
     public const string Success = "";
 
-    // Added with escapes so the private-use characters stay readable in diffs.
-    public const string DarkMode = "";   // moon
-    public const string LightMode = "";  // sun
-    public const string Home = "";
-    public const string GridView = "";
-    public const string ListView = "";
+    // Written as escapes so the private-use characters stay readable in diffs.
+    public const string DarkMode = "\uE708";   // moon
+    public const string LightMode = "\uE706";  // sun
+    public const string Home = "\uE80F";
+    public const string GridView = "\uF0E2";
+    public const string ListView = "\uEA37";
 }
