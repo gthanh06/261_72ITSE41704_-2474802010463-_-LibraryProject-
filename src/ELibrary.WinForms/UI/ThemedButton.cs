@@ -340,7 +340,7 @@ internal class ThemedButton : Button
         var reach = MathF.Sqrt(dx * dx + dy * dy);
         var r = reach * (0.12f + 0.88f * _rippleGrow);
         var onDark = _variant is ButtonVariant.Primary or ButtonVariant.Danger;
-        var ink = onDark ? Color.FromArgb((int)(64 * _rippleFade), Color.White)
+        var ink = onDark ? Color.FromArgb((int)(64 * _rippleFade), Theme.Colors.OnPrimary)
             : Color.FromArgb((int)(40 * _rippleFade), Theme.Colors.Primary);
 
         using var clip = Draw.RoundedRect(bounds, radius);

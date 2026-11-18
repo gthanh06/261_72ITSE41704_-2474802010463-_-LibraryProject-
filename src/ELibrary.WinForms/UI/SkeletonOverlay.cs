@@ -181,11 +181,12 @@ internal sealed class SkeletonOverlay : Control
         var band = this.Px(220);
         var x = -band + (Width + band * 2) * _phase;
         var rect = new RectangleF(x, 0, band, Math.Max(1, Height));
+        var shine = Color.White; // a soft highlight on light bars, a faint one on dark bars
         using var brush = new LinearGradientBrush(rect, Color.Transparent, Color.Transparent, LinearGradientMode.Horizontal)
         {
             InterpolationColors = new ColorBlend
             {
-                Colors = new[] { Color.FromArgb(0, Color.White), Color.FromArgb(170, Color.White), Color.FromArgb(0, Color.White) },
+                Colors = new[] { Color.FromArgb(0, shine), Color.FromArgb(Theme.Colors.IsDark ? 50 : 170, shine), Color.FromArgb(0, shine) },
                 Positions = new[] { 0f, 0.5f, 1f }
             }
         };

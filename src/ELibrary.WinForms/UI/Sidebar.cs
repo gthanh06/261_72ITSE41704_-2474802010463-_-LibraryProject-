@@ -359,7 +359,7 @@ internal sealed class Sidebar : Control
             var mark = this.Px(32);
             var markRect = new Rectangle(this.Px(Theme.Space.M), this.Px(18), mark, mark);
             Draw.FillRounded(g, Theme.Colors.Accent, markRect, this.Px(8));
-            Draw.Glyph(g, Icons.Library, 12f, Color.White, markRect);
+            Draw.Glyph(g, Icons.Library, 12f, Theme.Colors.OnPrimary, markRect);
             var textLeft = markRect.Right + this.Px(10);
             TextRenderer.DrawText(g, BrandText, Theme.Fonts.Brand, new Rectangle(textLeft, markRect.Y - this.Px(1), LayoutWidth - textLeft - this.Px(48), mark),
                 Theme.Colors.SidebarActiveText, Draw.SingleLine | TextFormatFlags.NoPadding);
