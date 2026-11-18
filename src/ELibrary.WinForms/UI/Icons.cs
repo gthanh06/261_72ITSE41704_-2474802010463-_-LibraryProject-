@@ -44,6 +44,8 @@ internal static class Icons
     public const string Hide = "";
     public const string ChevronLeft = "";
     public const string ChevronRight = "";
+    public const string ChevronUp = "";
+    public const string ChevronDown = "";
 
     // Feedback
     public const string Info = "";
