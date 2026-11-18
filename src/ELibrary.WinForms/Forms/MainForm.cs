@@ -77,7 +77,9 @@ internal sealed class MainForm : Form
 
     private void BuildNavigation(RoleCode role)
     {
-        AddGroup("Library", ScreenItem("catalogue", "Catalogue", Icons.Library, Keys.Control | Keys.F, () => new CatalogueScreen(_app)));
+        AddGroup("Library",
+            ScreenItem("overview", "Overview", Icons.Home, null, () => new OverviewScreen(_app)),
+            ScreenItem("catalogue", "Catalogue", Icons.Library, Keys.Control | Keys.F, () => new CatalogueScreen(_app)));
 
         if (role == RoleCode.Librarian)
         {
@@ -158,7 +160,7 @@ internal sealed class MainForm : Form
                 Open("my-loans", () => new MyLoansScreen(_app));
                 break;
             default:
-                Open("reports", () => new ReportsScreen(_app));
+                Open("overview", () => new OverviewScreen(_app));
                 break;
         }
     }
