@@ -184,12 +184,14 @@ All foreign keys use `Restrict` on delete — records with history are deactivat
 
 ### 6.1 Navigation
 
-`LoginForm` → `MainForm` (menu built from the user's role; each screen opens as a tab, so
-several tasks can stay open). Figure D-4 (`navigation.png`).
+`LoginForm` → `MainForm`. The main window has a sidebar built from the user's role (groups below;
+each screen also has a keyboard shortcut, e.g. F2–F8, Ctrl+F for the catalogue). A screen is
+created the first time it is opened and kept, so switching back keeps its state; Ctrl+W closes
+it. On narrow windows the sidebar collapses to icons. Figure D-4 (`navigation.png`).
 
-| Menu | Screen | Use case | Admin | Librarian | Member |
+| Sidebar group | Screen | Use case | Admin | Librarian | Member |
 |---|---|---|:-:|:-:|:-:|
-| Catalogue | Catalogue search (+ Title editor dialog) | UC04, UC05, UC10 | view | ✓ edit | ✓ reserve / open link |
+| Library | Catalogue search (+ Title editor dialog) | UC04, UC05, UC10 | view | ✓ edit | ✓ reserve / open link |
 | Circulation | Check out | UC07 | | ✓ | |
 | | Return | UC08 | | ✓ | |
 | | Loans & renewals | UC09 | | ✓ | |
@@ -200,12 +202,24 @@ several tasks can stay open). Figure D-4 (`navigation.png`).
 | Reports | Reports (+ export to Excel/CSV) | UC13 | ✓ | ✓ | |
 | Administration | User accounts | UC02 | ✓ | | |
 | | Settings: membership types, fine policy, holidays, backup/restore | UC03, NFR-08 | ✓ | | |
-| Account | Change password, Log out | UC01 | ✓ | ✓ | ✓ |
+| Sidebar footer | Change password, Log out | UC01 | ✓ | ✓ | ✓ |
 
 ### 6.2 UI conventions
 
-* One consistent look: every screen derives from `ScreenBase` (title, status line, standard
-  margins); every list is a read-only `DataGridView` with full-row selection.
+* One consistent look: every screen derives from `ScreenBase` (page header with section and
+  title, status line, standard margins); every list is a read-only `DataGridView` with
+  full-row selection, styled by `GridStyle` (header, alternating rows, hover, status badges,
+  empty state).
+* Design tokens — colours, spacing, radii, sizes, fonts and motion — are defined once in
+  `UI/Theme.cs`; screens use the helpers in `Ui` and the themed controls in `UI/`
+  (`ThemedButton`, `FormField`, `Badge`, `Card`, `EmptyState`, `Toast`, `MessageDialog`)
+  instead of setting colours or fonts themselves. Text and controls meet WCAG AA contrast,
+  every control is reachable with the keyboard and shows a focus ring, and animations are
+  skipped when Windows animations are turned off.
+* Feedback: expected errors (validation, business rules) appear inline — the status line and a
+  toast on screens, a banner above the fields in dialogs — so the user's input is kept;
+  confirmations use `MessageDialog.Confirm` (destructive actions in red, Cancel focused);
+  unexpected errors open the error dialog.
 * The checkout screen supports the 4-step flow of NFR-09: member code → Enter → barcode →
   Enter (saves). Rejections show the reason from the business rule, e.g.
   "BR1: Loan limit reached (3/3)."
