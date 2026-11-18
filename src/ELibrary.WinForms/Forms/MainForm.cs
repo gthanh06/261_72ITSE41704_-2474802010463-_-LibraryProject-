@@ -111,6 +111,9 @@ internal sealed class MainForm : Form
         }
 
         _sidebar.AddFooterItems(
+            Theme.Colors.IsDark
+                ? Command("theme", "Switch to light mode", Icons.LightMode, ToggleTheme)
+                : Command("theme", "Switch to dark mode", Icons.DarkMode, ToggleTheme),
             Command("change-password", "Change password…", Icons.Password, ChangePassword),
             Command("logout", "Log out", Icons.SignOut, LogOut));
         _shortcuts[Keys.Control | Keys.W] = CloseCurrentScreen;
@@ -291,6 +294,33 @@ internal sealed class MainForm : Form
     {
         using var dialog = new ChangePasswordDialog(_app);
         dialog.ShowDialog(this);
+    }
+
+    /// <summary>
+    /// Saves the other theme and restarts the app: colours are fixed when it starts, so a restart is the
+    /// only way to repaint every window consistently.
+    /// </summary>
+    private void ToggleTheme()
+    {
+        var toDark = !Theme.Colors.IsDark;
+        if (!MessageDialog.Confirm(this, toDark ? "Switch to dark mode?" : "Switch to light mode?",
+                "E-Library will restart to apply the theme, and you will need to sign in again.", "Restart"))
+        {
+            return;
+        }
+
+        try
+        {
+            ThemePreference.Save(toDark ? ThemeMode.Dark : ThemeMode.Light);
+        }
+        catch (Exception ex)
+        {
+            ErrorHandler.Show(this, ex);
+            return;
+        }
+
+        _app.Auth.Logout();
+        Application.Restart();
     }
 
     private void LogOut()
