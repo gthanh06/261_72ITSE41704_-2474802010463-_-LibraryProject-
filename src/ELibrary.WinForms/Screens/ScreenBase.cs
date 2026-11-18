@@ -58,6 +58,13 @@ internal abstract class ScreenBase : UserControl
         }
     }
 
+    /// <summary>Gives combo boxes and check boxes that the screen created itself the themed look (display only).</summary>
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        NativeTheme.ApplyToTree(this);
+    }
+
     protected void SetStatus(string text, bool isError = false) =>
         _status.ShowMessage(text, isError ? Tone.Danger : Tone.Success);
 
