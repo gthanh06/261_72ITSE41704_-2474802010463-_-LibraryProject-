@@ -32,7 +32,7 @@ internal static class Toasts
         public ToastStack(Form form)
         {
             _form = form;
-            _form.Resize += (_, _) => Arrange(animate: false);
+            _form.Resize += (_, _) => Arrange(animate: false, entering: null);
         }
 
         public void Push(Toast toast)
@@ -46,7 +46,7 @@ internal static class Toasts
             _toasts.Add(toast);
             _form.Controls.Add(toast);
             toast.BringToFront();
-            Arrange(animate: true);
+            Arrange(animate: true, entering: toast);
             toast.Announce();
         }
 
@@ -57,11 +57,11 @@ internal static class Toasts
                 _form.Controls.Remove(toast);
                 toast.Dispose();
                 // The toasts above slide down into the gap.
-                Arrange(animate: true);
+                Arrange(animate: true, entering: null);
             }
         }
 
-        private void Arrange(bool animate)
+        private void Arrange(bool animate, Toast? entering)
         {
             var margin = _form.Px(Theme.Space.L);
             var bottom = _form.ClientSize.Height - margin;
@@ -70,7 +70,7 @@ internal static class Toasts
                 var toast = _toasts[i];
                 var target = new Point(_form.ClientSize.Width - toast.Width - margin, bottom - toast.Height);
                 bottom = target.Y - _form.Px(Theme.Space.S);
-                if (animate && i == _toasts.Count - 1)
+                if (animate && toast == entering)
                 {
                     toast.SlideIn(target);
                 }
@@ -126,20 +126,25 @@ internal sealed class Toast : Control
     public void MoveTo(Point target, bool animate)
     {
         _move?.Stop();
-        if (!animate || _closing || Location == target)
+        if (_closing)
         {
-            if (!_closing)
-            {
-                Location = target;
-            }
+            return; // it is sliding out; leave it where it is
+        }
 
+        // Only the vertical position is animated: the horizontal one may be owned by a running slide-in.
+        if (_slide is not { IsRunning: true })
+        {
+            Left = target.X;
+        }
+
+        if (!animate || Top == target.Y)
+        {
+            Top = target.Y;
             return;
         }
 
-        var from = Location;
-        _move = Tween.Run(Theme.Motion.NormalMs + 40, p => Location = new Point(
-            (int)Math.Round(from.X + (target.X - from.X) * p),
-            (int)Math.Round(from.Y + (target.Y - from.Y) * p)));
+        var fromY = Top;
+        _move = Tween.Run(Theme.Motion.NormalMs + 40, p => Top = (int)Math.Round(fromY + (target.Y - fromY) * p));
     }
 
     public void Announce()
