@@ -133,11 +133,11 @@ internal sealed class CatalogueScreen : ScreenBase
 
     private void LoadCategories()
     {
-        Run(() =>
+        _ = RunAsync("categories", () => App.Catalogue.GetCategories().ToList(), categories =>
         {
             _category.Items.Clear();
             _category.Items.Add(new LookupDto(0, "(all categories)"));
-            foreach (var category in App.Catalogue.GetCategories())
+            foreach (var category in categories)
             {
                 _category.Items.Add(category);
             }
