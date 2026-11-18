@@ -101,26 +101,28 @@ internal static class Draw
 }
 
 /// <summary>
-/// A short time-based animation (ease-out). When animations are switched off the end state is applied
-/// at once, so behaviour never depends on motion.
+/// A short time-based animation (ease-out), driven by the shared <see cref="AnimationClock"/> so it runs
+/// once per display frame. When animations are switched off the end state is applied at once, so
+/// behaviour never depends on motion.
 /// </summary>
 internal sealed class Tween : IDisposable
 {
-    private readonly System.Windows.Forms.Timer _timer = new() { Interval = 15 };
     private readonly Action<float> _step;
     private readonly Action? _done;
     private readonly int _durationMs;
-    private DateTime _started;
+    private readonly Action<double> _onFrame;
+    private double _startedMs;
+    private bool _running;
 
     private Tween(int durationMs, Action<float> step, Action? done)
     {
         _durationMs = durationMs;
         _step = step;
         _done = done;
-        _timer.Tick += (_, _) => Tick();
+        _onFrame = OnFrame;
     }
 
-    public bool IsRunning => _timer.Enabled;
+    public bool IsRunning => _running;
 
     /// <summary>Runs <paramref name="step"/> with an eased progress from 0 to 1.</summary>
     public static Tween? Run(int durationMs, Action<float> step, Action? done = null)
@@ -132,25 +134,36 @@ internal sealed class Tween : IDisposable
             return null;
         }
 
-        var tween = new Tween(durationMs, step, done) { _started = DateTime.UtcNow };
-        tween._timer.Start();
+        var tween = new Tween(durationMs, step, done) { _startedMs = AnimationClock.NowMs };
         step(0f);
+        tween._running = true;
+        AnimationClock.Subscribe(tween._onFrame);
         return tween;
     }
 
-    public void Stop() => _timer.Stop();
-
-    public void Dispose() => _timer.Dispose();
-
-    private void Tick()
+    public void Stop()
     {
-        var t = (float)Math.Min(1.0, (DateTime.UtcNow - _started).TotalMilliseconds / _durationMs);
-        var eased = 1f - (float)Math.Pow(1 - t, 3);
-        _step(eased);
+        if (_running)
+        {
+            _running = false;
+            AnimationClock.Unsubscribe(_onFrame);
+        }
+    }
+
+    public void Dispose() => Stop();
+
+    private void OnFrame(double nowMs)
+    {
+        if (!_running)
+        {
+            return;
+        }
+
+        var t = (float)Math.Min(1.0, (nowMs - _startedMs) / _durationMs);
+        _step(Easing.OutCubic(t));
         if (t >= 1f)
         {
-            _timer.Stop();
-            _timer.Dispose();
+            Stop();
             _done?.Invoke();
         }
     }
