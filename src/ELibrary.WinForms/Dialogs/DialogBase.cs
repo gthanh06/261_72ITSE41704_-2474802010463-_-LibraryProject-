@@ -29,6 +29,7 @@ internal abstract class DialogBase : Form
         ForeColor = Theme.Colors.Text;
         Font = Theme.Fonts.Body;
         Padding = this.Px(Theme.Space.L, Theme.Space.M, Theme.Space.L, Theme.Space.M);
+        WindowChrome.Apply(this, Theme.Colors.Surface);
 
         _heading = new Label
         {
@@ -108,6 +109,13 @@ internal abstract class DialogBase : Form
     {
         base.OnShown(e);
         DimOverlay.AttachTo(this);
+    }
+
+    /// <summary>Gives combo boxes and check boxes that the dialog created itself the themed look (display only).</summary>
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        NativeTheme.ApplyToTree(this);
     }
 
     private void OnOk()
