@@ -42,6 +42,7 @@ internal static class GridStyle
         header.Font = Theme.Fonts.SmallSemibold;
         header.Padding = cellPadding;
         header.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        header.WrapMode = DataGridViewTriState.False;
 
         var cells = grid.DefaultCellStyle;
         cells.BackColor = Theme.Colors.Surface;
@@ -64,7 +65,11 @@ internal static class GridStyle
         grid.Controls.Add(state.Empty);
         grid.RowsAdded += (_, _) => UpdateEmpty(grid, state);
         grid.RowsRemoved += (_, _) => UpdateEmpty(grid, state);
-        grid.ColumnAdded += (_, _) => UpdateEmpty(grid, state);
+        grid.ColumnAdded += (_, e) =>
+        {
+            FitMinimumWidth(grid, e.Column, cellPadding.Horizontal);
+            UpdateEmpty(grid, state);
+        };
         grid.Resize += (_, _) => UpdateEmpty(grid, state);
     }
 
@@ -85,6 +90,23 @@ internal static class GridStyle
         }
 
         UpdateEmpty(grid, state);
+    }
+
+    /// <summary>
+    /// Keeps a column at least wide enough for its header and, for date columns, for a full date, so that
+    /// proportional (Fill) widths never cut those down to "10/11/2…". Wider content still gets an ellipsis.
+    /// </summary>
+    private static void FitMinimumWidth(DataGridView grid, DataGridViewColumn column, int padding)
+    {
+        var width = Draw.TextWidth(column.HeaderText, Theme.Fonts.SmallSemibold);
+        var format = column.DefaultCellStyle.Format;
+        if (column.ValueType == typeof(DateTime) && !string.IsNullOrEmpty(format))
+        {
+            var sample = new DateTime(2000, 12, 28, 23, 58, 0).ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            width = Math.Max(width, Draw.TextWidth(sample, Theme.Fonts.Body));
+        }
+
+        column.MinimumWidth = Math.Max(column.MinimumWidth, width + padding + grid.Px(Theme.Space.Xs));
     }
 
     private static void UpdateEmpty(DataGridView grid, State state)
