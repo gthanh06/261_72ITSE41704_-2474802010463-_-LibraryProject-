@@ -117,7 +117,7 @@ internal sealed class Toast : Control
         var startX = target.X + this.Px(40);
         Location = new Point(startX, target.Y);
         _slide?.Stop();
-        _slide = Tween.Run(Theme.Motion.NormalMs, p => Left = (int)(startX + (target.X - startX) * p));
+        _slide = Tween.Run(Theme.Motion.NormalMs, p => Left = (int)(startX + (target.X - startX) * p), ease: Easing.OutQuint);
     }
 
     public void Announce()
@@ -141,7 +141,7 @@ internal sealed class Toast : Control
         _slide?.Stop();
         var startX = Left;
         _slide = Tween.Run(Theme.Motion.FastMs, p => Left = startX + (int)(this.Px(60) * p),
-            () => Dismissed?.Invoke(this, EventArgs.Empty));
+            () => Dismissed?.Invoke(this, EventArgs.Empty), Easing.InOutCubic);
     }
 
     protected override void OnMouseEnter(EventArgs e)
