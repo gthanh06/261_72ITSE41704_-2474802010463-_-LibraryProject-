@@ -3,7 +3,7 @@ using System.Drawing.Text;
 namespace ELibrary.WinForms.UI;
 
 /// <summary>
-/// Design tokens of the "Warm library" theme. This is the only place where colours, spacing, corner
+/// Design tokens of the theme (light, Windows 11 style). This is the only place where colours, spacing, corner
 /// radii, sizes, fonts and motion timings are defined; every control and screen reads them from here.
 /// Sizes are logical pixels at 96 DPI — convert them with <see cref="ControlScaling.Px"/>.
 /// </summary>
@@ -11,56 +11,56 @@ internal static class Theme
 {
     internal static class Colors
     {
-        // Surfaces
-        public static readonly Color Background = Hex(0xFAF7F2);      // paper
+        // Surfaces (cool neutral greys, as in Windows 11)
+        public static readonly Color Background = Hex(0xF5F6F8);      // window background
         public static readonly Color Surface = Hex(0xFFFFFF);         // cards, tables, inputs
-        public static readonly Color SurfaceSunken = Hex(0xF3EEE4);   // table header, hover
-        public static readonly Color RowAlternate = Hex(0xFCFAF6);
-        public static readonly Color Border = Hex(0xE8E1D5);
-        public static readonly Color BorderStrong = Hex(0xD3C8B6);
-        public static readonly Color InputBorder = Hex(0x9A8B78);       // 3.3:1 on white (WCAG 1.4.11)
-        public static readonly Color InputBorderHover = Hex(0x6B5E4F);
+        public static readonly Color SurfaceSunken = Hex(0xF1F3F5);   // table header, hover
+        public static readonly Color RowAlternate = Hex(0xFAFBFC);
+        public static readonly Color Border = Hex(0xE3E6EA);
+        public static readonly Color BorderStrong = Hex(0xCDD2D8);
+        public static readonly Color InputBorder = Hex(0x8B929C);       // 3.2:1 on white (WCAG 1.4.11)
+        public static readonly Color InputBorderHover = Hex(0x5F6670);
 
         // Text
-        public static readonly Color Text = Hex(0x2B2118);
-        public static readonly Color TextMuted = Hex(0x6B5E4F);
-        public static readonly Color TextDisabled = Hex(0xA3968A);
+        public static readonly Color Text = Hex(0x1F2328);
+        public static readonly Color TextMuted = Hex(0x5B636E);         // 6:1 on white
+        public static readonly Color TextDisabled = Hex(0xA2A8B0);
 
         // Brand
-        public static readonly Color Primary = Hex(0x1F5F4A);         // deep moss green
-        public static readonly Color PrimaryHover = Hex(0x174A3A);
-        public static readonly Color PrimaryPressed = Hex(0x113A2D);
-        public static readonly Color PrimarySoft = Hex(0xE3EFEA);
+        public static readonly Color Primary = Hex(0x0F7B5F);         // library green, 5.2:1 on white
+        public static readonly Color PrimaryHover = Hex(0x0C6A52);
+        public static readonly Color PrimaryPressed = Hex(0x095943);
+        public static readonly Color PrimarySoft = Hex(0xE3F2EC);
         public static readonly Color OnPrimary = Hex(0xFFFFFF);
-        public static readonly Color Accent = Hex(0xB7791F);          // brass
-        public static readonly Color AccentBright = Hex(0xD69E2E);
+        public static readonly Color Accent = Primary;                 // brand mark, selection indicator
+        public static readonly Color AccentBright = Hex(0x12936F);
 
         // Semantic (text colour on its soft background passes WCAG AA)
-        public static readonly Color Success = Hex(0x256B42);
-        public static readonly Color SuccessSoft = Hex(0xE6F2EA);
-        public static readonly Color Info = Hex(0x2C4A6E);            // library ink blue
-        public static readonly Color InfoSoft = Hex(0xE5ECF4);
-        public static readonly Color Warning = Hex(0x7A4F0F);
-        public static readonly Color WarningSoft = Hex(0xFBF1DE);
-        public static readonly Color Danger = Hex(0xB42318);
-        public static readonly Color DangerHover = Hex(0x912018);
-        public static readonly Color DangerSoft = Hex(0xFBE9E7);
-        public static readonly Color Neutral = Hex(0x5E5245);
-        public static readonly Color NeutralSoft = Hex(0xEFEAE2);
+        public static readonly Color Success = Hex(0x1E6B41);
+        public static readonly Color SuccessSoft = Hex(0xE5F4EA);
+        public static readonly Color Info = Hex(0x1F57A4);
+        public static readonly Color InfoSoft = Hex(0xE8EFFB);
+        public static readonly Color Warning = Hex(0x8A5300);
+        public static readonly Color WarningSoft = Hex(0xFDF2DC);
+        public static readonly Color Danger = Hex(0xC42B1C);            // Windows 11 critical red
+        public static readonly Color DangerHover = Hex(0xA32317);
+        public static readonly Color DangerSoft = Hex(0xFDE7E5);
+        public static readonly Color Neutral = Hex(0x4B5563);
+        public static readonly Color NeutralSoft = Hex(0xEEF0F3);
 
-        // Sidebar
-        public static readonly Color Sidebar = Hex(0x173F33);
-        public static readonly Color SidebarHover = Hex(0x1E4C3F);
-        public static readonly Color SidebarActive = Hex(0x22574A);
-        public static readonly Color SidebarText = Hex(0xE6DDC9);
-        public static readonly Color SidebarTextMuted = Hex(0xA8BBAF);
-        public static readonly Color SidebarActiveText = Hex(0xFFFFFF);
-        public static readonly Color SidebarDivider = Hex(0x2A5A4C);
+        // Sidebar (light navigation pane; the selected item is tinted with the brand colour)
+        public static readonly Color Sidebar = Hex(0xEEF1F4);
+        public static readonly Color SidebarHover = Hex(0xE3E7EC);
+        public static readonly Color SidebarActive = Hex(0xDDEDE6);
+        public static readonly Color SidebarText = Hex(0x2B3036);
+        public static readonly Color SidebarTextMuted = Hex(0x5F6670);  // 5:1 on the sidebar
+        public static readonly Color SidebarActiveText = Hex(0x1F2328);
+        public static readonly Color SidebarDivider = Hex(0xDDE1E6);
 
         // Effects
-        public static readonly Color FocusRing = Accent;
-        public static readonly Color Shadow = Hex(0x2B2118);
-        public static readonly Color Overlay = Hex(0x10261F);
+        public static readonly Color FocusRing = Hex(0x1F2328);        // dark ring, as Windows 11 draws keyboard focus
+        public static readonly Color Shadow = Hex(0x1F2328);
+        public static readonly Color Overlay = Hex(0x0B0F14);
 
         private static Color Hex(int rgb) => Color.FromArgb(255, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
     }
@@ -80,7 +80,7 @@ internal static class Theme
     internal static class Radius
     {
         public const int Control = 6;
-        public const int Card = 10;
+        public const int Card = 8;
     }
 
     internal static class Size
@@ -100,19 +100,23 @@ internal static class Theme
 
         public static readonly string TextFamily = FirstInstalled("Segoe UI Variable Text", "Segoe UI");
         public static readonly string SemiboldFamily = FirstInstalled("Segoe UI Variable Text Semibold", "Segoe UI Semibold", "Segoe UI");
-        public static readonly string HeadingFamily = FirstInstalled("Georgia", "Cambria", "Times New Roman");
+        // GDI truncates family names to 31 characters, hence "…Display Semib".
+        public static readonly string HeadingFamily = FirstInstalled("Segoe UI Variable Display Semib", "Segoe UI Semibold", "Segoe UI");
         public static readonly string IconFamily = FirstInstalled("Segoe Fluent Icons", "Segoe MDL2 Assets");
 
-        // Type scale (points): 20 page title · 16 section · 13 card heading · 10 body · 9 small · 8.5 caption
-        public static readonly Font PageTitle = new(HeadingFamily, 20f, FontStyle.Bold);
-        public static readonly Font Section = new(HeadingFamily, 16f, FontStyle.Bold);
+        // Type scale (points): 20 page title · 15 section · 13 card heading · 10 body · 9 small · 8.5 caption
+        public static readonly Font PageTitle = new(HeadingFamily, 20f);
+        public static readonly Font Section = new(HeadingFamily, 15f);
         public static readonly Font CardTitle = new(SemiboldFamily, 13f);
         public static readonly Font Body = new(TextFamily, 10f);
         public static readonly Font BodySemibold = new(SemiboldFamily, 10f);
         public static readonly Font Small = new(TextFamily, 9f);
         public static readonly Font SmallSemibold = new(SemiboldFamily, 9f);
         public static readonly Font Caption = new(SemiboldFamily, 8.5f);
-        public static readonly Font Brand = new(HeadingFamily, 14f, FontStyle.Bold);
+        public static readonly Font Brand = new(HeadingFamily, 13f);
+
+        /// <summary>Body text for native controls that measure Segoe UI Variable wrongly (the date picker).</summary>
+        public static readonly Font NativeBody = new(FirstInstalled("Segoe UI"), 10f);
 
         private static readonly Dictionary<float, Font> IconFonts = new();
 
