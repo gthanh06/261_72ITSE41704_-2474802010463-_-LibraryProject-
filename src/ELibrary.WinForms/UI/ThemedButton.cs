@@ -120,14 +120,19 @@ internal class ThemedButton : Button
         var iconOnly = string.IsNullOrEmpty(Text);
         if (iconOnly)
         {
-            return new Size(height, height);
+            return AtLeastMinimum(new Size(height, height));
         }
 
         var textWidth = Draw.TextWidth(Text, Font);
         var padding = this.Px(_compact ? Theme.Space.S : Theme.Space.M);
         var glyphWidth = _glyph != null || _loading ? this.Px(16 + Theme.Space.Xs) : 0;
-        return new Size(padding * 2 + glyphWidth + textWidth, height);
+        return AtLeastMinimum(new Size(padding * 2 + glyphWidth + textWidth, height));
     }
+
+    // Layout panels place controls by their preferred size, so it must already include MinimumSize;
+    // otherwise neighbouring buttons overlap when the minimum is wider than the text.
+    private Size AtLeastMinimum(Size size) =>
+        new(Math.Max(size.Width, MinimumSize.Width), Math.Max(size.Height, MinimumSize.Height));
 
     protected override void OnClick(EventArgs e)
     {
