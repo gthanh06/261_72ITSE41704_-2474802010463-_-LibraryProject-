@@ -28,6 +28,7 @@ internal sealed class MessageDialog : Form
         KeyPreview = true;
         BackColor = Theme.Colors.Surface;
         WindowChrome.Apply(this, Theme.Colors.Surface); // rounded corners on Windows 11
+        DialogMotion.Apply(this);
         ForeColor = Theme.Colors.Text;
         Font = Theme.Fonts.Body;
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
