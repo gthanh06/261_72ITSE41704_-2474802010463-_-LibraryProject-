@@ -1,3 +1,4 @@
+using System.Data;
 using ELibrary.Business.Abstractions;
 using ELibrary.Domain.Entities;
 using ELibrary.Domain.Exceptions;
@@ -16,6 +17,7 @@ public sealed class EfUnitOfWork : IUnitOfWork
     private const int UniqueIndexViolation = 2601;
     private const int UniqueConstraintViolation = 2627;
     private const int ConstraintViolation = 547;
+    private const int DeadlockVictim = 1205;
 
     private readonly LibraryDbContext _context;
 
@@ -79,9 +81,16 @@ public sealed class EfUnitOfWork : IUnitOfWork
             return;
         }
 
-        using var transaction = _context.Database.BeginTransaction();
-        action();
-        transaction.Commit(); // an exception before this line rolls everything back on Dispose
+        try
+        {
+            using var transaction = _context.Database.BeginTransaction(IsolationLevel.Serializable);
+            action();
+            transaction.Commit();
+        }
+        catch (SqlException ex) when (ex.Number == DeadlockVictim)
+        {
+            throw new DataAccessException("Another user changed the same data. Please refresh and try again.", ex);
+        }
     }
 
     public void Dispose() => _context.Dispose();
@@ -93,6 +102,8 @@ public sealed class EfUnitOfWork : IUnitOfWork
         {
             UniqueIndexViolation or UniqueConstraintViolation =>
                 "The change conflicts with existing data (a duplicate value). Another user may have changed the same record — please refresh and try again.",
+            DeadlockVictim =>
+                "Another user changed the same data. Please refresh and try again.",
             ConstraintViolation =>
                 "The change was rejected by a database rule (it refers to missing data or breaks a constraint).",
             _ => "The data could not be saved to the database."
