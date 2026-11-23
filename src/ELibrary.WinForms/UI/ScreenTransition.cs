@@ -38,7 +38,7 @@ internal sealed class ScreenTransition : Control
     /// Covers <paramref name="host"/> with a picture of <paramref name="from"/>. Returns null (no animation)
     /// when motion is off or there is nothing to fade from.
     /// </summary>
-    public static ScreenTransition? Capture(Control host, Control? from)
+    public new static ScreenTransition? Capture(Control host, Control? from)
     {
         if (!Theme.Motion.Enabled || from == null || from.IsDisposed || !from.Visible || !host.IsHandleCreated ||
             host.ClientSize.Width <= 0 || host.ClientSize.Height <= 0)
