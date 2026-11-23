@@ -36,7 +36,9 @@ internal sealed class SettingsScreen : ScreenBase
     public SettingsScreen(AppServices app) : base(app, "Settings")
     {
         _year = Ui.Number(2000, 2100, app.Clock.Today.Year);
+        _year.ThousandsSeparator = false;
         _holidayDate = Ui.DatePicker(app.Clock.Today);
+        _holidayName.PlaceholderText = "Description, e.g. Quốc khánh";
         foreach (var box in new[] { _dailyRate, _maxFine, _threshold })
         {
             box.ThousandsSeparator = true;
@@ -161,16 +163,35 @@ internal sealed class SettingsScreen : ScreenBase
             ("Opening days", _closedOnSundays));
         var save = Ui.Button("Save policy", SavePolicy, 130, ButtonVariant.Primary);
         _example.Margin = _example.Px(Theme.Space.Xxs, Theme.Space.S, 0, Theme.Space.S);
-        var card = new Card("Fines and holds", "Changes apply to fines recorded from now on; recorded fines keep their amount.")
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
-        };
-        card.Controls.Add(Ui.Column(fields, _example, save));
+        return ScrollPage(
+            Heading("Fines and holds", "Changes apply to fines recorded from now on; recorded fines keep their amount."),
+            fields, _example, save);
+    }
+
+    /// <summary>A scrollable page whose controls are stacked from the top-left.</summary>
+    private static Panel ScrollPage(params Control[] controls)
+    {
         var page = new Panel { AutoScroll = true };
-        card.Location = new Point(0, page.Px(Theme.Space.Xs));
-        page.Controls.Add(card);
+        var column = Ui.Column(controls);
+        column.Location = new Point(0, page.Px(Theme.Space.Xs));
+        page.Controls.Add(column);
         return page;
+    }
+
+    /// <summary>A section title with a short muted explanation under it.</summary>
+    private static Control Heading(string title, string description)
+    {
+        var heading = new Label { Text = title, Font = Theme.Fonts.CardTitle, ForeColor = Theme.Colors.Text, AutoSize = true };
+        var text = new Label
+        {
+            Text = description,
+            Font = Theme.Fonts.Body,
+            ForeColor = Theme.Colors.TextMuted,
+            AutoSize = true
+        };
+        text.MaximumSize = new Size(text.Px(640), 0);
+        text.Margin = text.Px(0, Theme.Space.Xxs, 0, Theme.Space.S);
+        return Ui.Column(heading, text);
     }
 
     private void LoadPolicy() => _ = RunAsync("policy", App.Settings.GetFinePolicy, policy =>
@@ -269,26 +290,17 @@ internal sealed class SettingsScreen : ScreenBase
 
     private Control BackupPage()
     {
-        var backup = new Card("Back up the database", "Writes a full SQL Server backup (.bak). Do this regularly and keep a copy on another drive.")
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
-        };
-        backup.Controls.Add(Ui.Row(Ui.Button("Back up now…", Backup, 140, ButtonVariant.Primary)));
-
-        var restore = new Card("Restore from a backup", "Replaces ALL current data with the backup. Everyone is signed out afterwards.")
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
-        };
-        restore.Controls.Add(Ui.Row(Ui.Button("Restore…", Restore, 120)));
-
+        var backup = Ui.Button("Back up now…", Backup, 140, ButtonVariant.Primary);
+        backup.Margin = backup.Px(0, 0, 0, Theme.Space.L);
+        var restore = Ui.Button("Restore…", Restore, 120);
+        restore.Margin = restore.Px(0, 0, 0, Theme.Space.L);
         var note = Ui.Label("The file path is opened by SQL Server, so the SQL Server service must be allowed to read and write that folder.");
-        var page = new Panel { AutoScroll = true };
-        var column = Ui.Column(backup, restore, note);
-        column.Location = new Point(0, page.Px(Theme.Space.Xs));
-        page.Controls.Add(column);
-        return page;
+        return ScrollPage(
+            Heading("Back up the database", "Writes a full SQL Server backup (.bak). Do this regularly and keep a copy on another drive."),
+            backup,
+            Heading("Restore from a backup", "Replaces ALL current data with the backup. Everyone is signed out afterwards."),
+            restore,
+            note);
     }
 
     private void Backup()
