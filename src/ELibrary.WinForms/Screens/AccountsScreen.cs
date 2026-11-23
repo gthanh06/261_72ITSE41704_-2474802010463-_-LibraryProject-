@@ -36,10 +36,10 @@ internal sealed class AccountsScreen : ScreenBase
         Compose(_grid, actions);
     }
 
-    public override void RefreshData() => _ = Load(null);
+    public override void RefreshData() => _ = LoadAccounts(null);
 
     /// <summary>Reloads the list and selects <paramref name="selectId"/> (or keeps the current selection).</summary>
-    private Task<bool> Load(int? selectId) => RunAsync("accounts",
+    private Task<bool> LoadAccounts(int? selectId) => RunAsync("accounts",
         () => App.Accounts.GetAccounts(_showMembers.Checked),
         accounts =>
         {
@@ -73,7 +73,7 @@ internal sealed class AccountsScreen : ScreenBase
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
         {
             Notify(Tone.Success, account == null ? "Account created" : "Account saved");
-            _ = Load(dialog.SavedId);
+            _ = LoadAccounts(dialog.SavedId);
         }
     }
 
