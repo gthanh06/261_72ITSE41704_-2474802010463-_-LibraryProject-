@@ -360,7 +360,7 @@ internal sealed class CoverGrid : Control
         return -1;
     }
 
-    private new void Select(int index)
+    private void Select(int index)
     {
         if (index == _selected)
         {

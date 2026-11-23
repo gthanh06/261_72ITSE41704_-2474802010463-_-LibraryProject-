@@ -43,9 +43,9 @@ internal sealed class OverviewScreen : ScreenBase
         Compose(body);
     }
 
-    public override void RefreshData() => _ = RunAsync("overview", Load, Show);
+    public override void RefreshData() => _ = RunAsync("overview", LoadSnapshot, Show);
 
-    private Snapshot Load()
+    private Snapshot LoadSnapshot()
     {
         var titles = App.Catalogue.Search(new CatalogueQuery(null));
         if (!_isStaff)
