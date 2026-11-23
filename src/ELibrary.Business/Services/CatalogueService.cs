@@ -347,26 +347,29 @@ public sealed class CatalogueService
     {
         _session.Require(RoleCode.Librarian);
         using var uow = _uowFactory.Create();
-        var title = uow.Titles.GetRequired(titleId, "Title");
-        if (active)
+        uow.ExecuteInTransaction(() =>
         {
-            title.Reactivate();
-        }
-        else
-        {
-            var busy = uow.Copies.Query().Any(c => c.TitleId == titleId &&
-                                                   (c.Status == CopyStatus.OnLoan || c.Status == CopyStatus.OnHold));
-            var waiting = uow.Reservations.Query().Any(r => r.TitleId == titleId && r.Status == ReservationStatus.Waiting);
-            if (busy || waiting)
+            var title = uow.Titles.GetRequired(titleId, "Title");
+            if (active)
             {
-                throw new BusinessRuleException(BusinessRuleException.StateRule,
-                    "This title still has copies on loan or on hold, or members waiting for it.");
+                title.Reactivate();
+            }
+            else
+            {
+                var busy = uow.Copies.Query().Any(c => c.TitleId == titleId &&
+                                                       (c.Status == CopyStatus.OnLoan || c.Status == CopyStatus.OnHold));
+                var waiting = uow.Reservations.Query().Any(r => r.TitleId == titleId && r.Status == ReservationStatus.Waiting);
+                if (busy || waiting)
+                {
+                    throw new BusinessRuleException(BusinessRuleException.StateRule,
+                        "This title still has copies on loan or on hold, or members waiting for it.");
+                }
+
+                title.Deactivate();
             }
 
-            title.Deactivate();
-        }
-
-        uow.SaveChanges();
+            uow.SaveChanges();
+        });
     }
 
     public int AddCopy(int titleId, string? barcode, string? location)
@@ -399,15 +402,18 @@ public sealed class CatalogueService
     {
         _session.Require(RoleCode.Librarian);
         using var uow = _uowFactory.Create();
-        var copy = uow.Copies.GetRequired(copyId, "Copy");
-        copy.ChangeStatus(newStatus);
-        if (newStatus == CopyStatus.Available)
+        uow.ExecuteInTransaction(() =>
         {
-            var rules = LibraryRules.Load(uow);
-            new HoldAllocator(uow, rules).AssignCopy(copy, _clock.Today);
-        }
+            var copy = uow.Copies.GetRequired(copyId, "Copy");
+            copy.ChangeStatus(newStatus);
+            if (newStatus == CopyStatus.Available)
+            {
+                var rules = LibraryRules.Load(uow);
+                new HoldAllocator(uow, rules).AssignCopy(copy, _clock.Today);
+            }
 
-        uow.SaveChanges();
+            uow.SaveChanges();
+        });
     }
 
     public int AddEResource(int titleId, string? label, string? url)
