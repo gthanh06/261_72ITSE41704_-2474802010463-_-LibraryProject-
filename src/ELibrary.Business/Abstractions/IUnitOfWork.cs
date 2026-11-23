@@ -30,8 +30,8 @@ public interface IUnitOfWork : IDisposable
     void SaveChanges();
 
     /// <summary>
-    /// Runs several <see cref="SaveChanges"/> calls in one transaction (needed when a new row's
-    /// generated key is used by the next row, e.g. account → member).
+    /// Runs validation queries and writes in a serializable transaction so concurrent changes cannot
+    /// invalidate a business check. Several saves may be used when a generated key is needed.
     /// </summary>
     void ExecuteInTransaction(Action action);
 }

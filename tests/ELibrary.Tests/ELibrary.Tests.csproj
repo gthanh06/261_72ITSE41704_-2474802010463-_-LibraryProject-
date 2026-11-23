@@ -21,7 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ELibrary.Business\ELibrary.Business.csproj" />
     <ProjectReference Include="..\..\src\ELibrary.Domain\ELibrary.Domain.csproj" />
-    <ProjectReference Include="..\..\src\ELibrary.DataAccess\ELibrary.DataAccess.csproj" />
   </ItemGroup>
 
 </Project>
