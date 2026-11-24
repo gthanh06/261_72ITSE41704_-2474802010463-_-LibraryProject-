@@ -440,6 +440,13 @@ internal sealed class Sidebar : Control
 
     private void PaintFooter(Graphics g)
     {
+        // Cover the menu items that scroll under the footer: TextRenderer ignores the clip set in OnPaint,
+        // so without this their labels (e.g. "Reports F8") showed through behind the user's name.
+        using (var background = new SolidBrush(Theme.Colors.Sidebar))
+        {
+            g.FillRectangle(background, 0, _footerTop, LayoutWidth, Height - _footerTop);
+        }
+
         using (var pen = new Pen(Theme.Colors.SidebarDivider))
         {
             g.DrawLine(pen, 0, _footerTop, LayoutWidth, _footerTop);

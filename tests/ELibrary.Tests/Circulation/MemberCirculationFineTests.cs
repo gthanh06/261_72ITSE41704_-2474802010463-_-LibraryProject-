@@ -229,6 +229,7 @@ public sealed class MemberCirculationFineTests
     }
 
     [TestCase("overdue", "BR7")]
+    [TestCase("overdue with a fine above the limit", "BR7")]
     [TestCase("another member waiting", "BR7")]
     [TestCase("debt", "BR2")]
     [TestCase("returned", "BR7")]
@@ -240,6 +241,10 @@ public sealed class MemberCirculationFineTests
         {
             case "overdue":
                 _clock.Now = _clock.Now.AddDays(15);
+                break;
+            case "overdue with a fine above the limit":
+                // Bug found in manual testing: the accruing fine (BR2) was reported instead of "overdue" (BR7).
+                _clock.Now = _clock.Now.AddDays(40);
                 break;
             case "another member waiting":
                 _db.Reservations.Add(new Reservation(copy.TitleId, _second.Id, _clock.Now));

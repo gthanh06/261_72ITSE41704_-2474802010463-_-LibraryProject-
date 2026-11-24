@@ -8,15 +8,18 @@ internal class LoansScreen : ScreenBase
 {
     internal static readonly GridColumn<LoanDto>[] LoanColumns =
     [
-        new("Member", l => $"{l.MemberCode} · {l.MemberName}", 135),
-        new("Title", l => l.TitleName, 160),
-        new("Barcode", l => l.Barcode, 80),
+        new("Member", l => $"{l.MemberCode} · {l.MemberName}", 150),
+        new("Title", l => l.TitleName, 230),
+        new("Barcode", l => l.Barcode, 75),
         new("Loan date", l => l.LoanDate, 75, Ui.DateFormat),
         new("Due date", l => l.DueDate.ToDateTime(TimeOnly.MinValue), 75, Ui.DateFormat),
-        new("Renewals", l => l.RenewalCount, 65),
-        new("Status", l => l.IsOverdue ? "Overdue" : "On loan", 75),
+        new("Renewals", l => l.RenewalCount, 60),
+        new("Status", l => l.IsOverdue ? "Overdue" : "On loan", 95),
         new("Fine to date", l => l.FineToDate, 90, Ui.MoneyFormat)
     ];
+
+    /// <summary>The same columns without "Member", for screens that already show one member.</summary>
+    internal static readonly GridColumn<LoanDto>[] MemberLoanColumns = LoanColumns.Skip(1).ToArray();
 
     private readonly DataGridView _grid = Ui.Grid();
     private readonly TextBox _memberCode = Ui.TextBox(150);

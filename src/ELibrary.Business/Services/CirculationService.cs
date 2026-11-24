@@ -109,8 +109,9 @@ public sealed class CirculationService(IUnitOfWorkFactory factory, IClock clock,
             var type = uow.MembershipTypes.GetRequired(member.MembershipTypeId, "Membership type");
             var rules = LibraryRules.Load(uow);
 
-            EnsureEligible(uow, rules, member, today);
+            // BR7 first: an overdue loan must be refused as overdue, not because of the fine it is accruing (BR2).
             loan.EnsureCanBeRenewed(type.MaxRenewals, today);
+            EnsureEligible(uow, rules, member, today);
             var copy = uow.Copies.GetRequired(loan.CopyId, "Copy");
             if (uow.Reservations.Query().Any(r => r.TitleId == copy.TitleId
                 && r.MemberId != member.Id && r.Status == ReservationStatus.Waiting))

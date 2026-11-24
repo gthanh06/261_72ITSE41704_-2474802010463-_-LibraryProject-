@@ -39,7 +39,8 @@ internal sealed class ExcelReportExporter : IReportExporter
             }
         }
 
-        sheet.Columns().AdjustToContents();
+        // Size the columns to the table only; the long report title in A1 must not widen column A.
+        sheet.Columns().AdjustToContents(HeaderRow, HeaderRow + table.Rows.Count);
         workbook.SaveAs(output);
     }
 
