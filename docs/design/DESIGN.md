@@ -43,7 +43,7 @@ display the result or the error. No business rule and no query is written in a f
 
 | Concern | Decision |
 |---|---|
-| Authentication | `AuthService.Login` verifies PBKDF2-SHA256 hashes (100,000 iterations, 16-byte random salt; NFR-03). 5 consecutive failures lock the account for 5 minutes (NFR-05). |
+| Authentication | `AuthService.Login` verifies PBKDF2-SHA256 hashes (100,000 iterations, 16-byte random salt, 32-byte hash; NFR-03). User names are matched case-insensitively and a wrong user name or password gives the same message. 5 consecutive failures lock the account for 5 minutes (NFR-05). `PasswordPolicy`: 8–100 characters, at least one letter and one digit, not equal to the user name. |
 | Authorisation | Every public service method starts with `_session.Require(...)` (NFR-04). Member-facing methods additionally check that the member only touches his/her own data. |
 | Time | All services read the date from `IClock`, so tests can fix "today". |
 | Errors | `LibraryException` hierarchy: `ValidationException` (bad input), `BusinessRuleException` (BR violated, carries the rule id), `NotFoundException`, `AccessDeniedException`, `AuthenticationFailedException`, `DataAccessException` (wraps EF/SQL errors). The UI shows `LibraryException` messages as warnings; anything else is logged and shown as a generic error by a global handler — the application never crashes on bad input (NFR-06). |
@@ -65,9 +65,9 @@ entity that realises the many-to-many Title–Author association.
 | Package | Class | Key behaviour (operations that carry rules) |
 |---|---|---|
 | Users | `Role` | `Code` (Administrator, Librarian, Member) |
-| | `UserAccount` | `IsLockedOut(now)`, `RegisterFailedLogin(now)`, `RegisterSuccessfulLogin(now)`, `Lock()`, `Unlock()`, `ChangePasswordHash()`, `ChangeStaffRole()` |
-| | `MembershipType` | `CalculateDueDate(start, calendar)` (BR1), `EnsureBelowLoanLimit(activeLoans)` (BR1); `MaxRenewals` is used by `Loan.Renew` (BR7) |
-| | `Member` | `IsCardValid(today)`, `EnsureCanBorrow(today, outstandingFines, policy)` (BR2), `UpdateDetails(…)`, `ExtendCard(newExpiry)`, `LinkAccount(accountId)`, `Deactivate()` / `Reactivate()` |
+| | `UserAccount` | `IsLockedOut(now)`, `RegisterFailedLogin(now)`, `RegisterSuccessfulLogin(now)`, `Lock()`, `Unlock()`, `ChangePasswordHash()`, `ChangeFullName()`, `ChangeStaffRole()` |
+| | `MembershipType` | `Update(…)`, `CalculateDueDate(start, calendar)` (BR1), `EnsureBelowLoanLimit(activeLoans)` (BR1); `MaxRenewals` is used by `Loan.Renew` (BR7) |
+| | `Member` | `IsCardValid(today)`, `GetBorrowingBlock(today, outstandingFines, policy)` (the reason, or null) and `EnsureCanBorrow(…)` (BR2), `UpdateDetails(…)`, `ExtendCard(newExpiry)`, `LinkAccount(accountId)`, `Deactivate()` / `Reactivate()` |
 | Catalogue | `Title`, `Author`, `TitleAuthor`, `Publisher`, `Category` | `Title.Update(...)`, `Title.Deactivate()` |
 | | `EResource` | URL must be absolute http/https |
 | | `Copy` | `CheckOut()`, `CheckOutHeldCopy()`, `CheckIn()`, `PlaceOnHold()`, `ReleaseHold()`, `ChangeStatus()`, `ChangeLocation()` — guards legal status transitions |
@@ -106,13 +106,13 @@ parameters, so the same invariants are checked again when rows are loaded from t
 
 | Rule | Enforced in | Tested by |
 |---|---|---|
-| BR1 Loan limit & period | `MembershipType.EnsureBelowLoanLimit`, `MembershipType.CalculateDueDate`, called by `CirculationService.CheckOut` | `CheckoutTests`, `LibraryCalendarTests` |
-| BR2 Eligibility | `Member.EnsureCanBorrow` (card + debt threshold), `FineLedger.GetOutstanding` (unpaid fines + fines accrued to date on overdue loans); used by checkout, renew, reserve | `CheckoutTests`, `RenewalTests`, `ReservationTests` |
-| BR3 Overdue fine | `LibraryCalendar.CountChargeableDays` + `FinePolicy.CalculateFine`; `CirculationService.Return` records the `Fine` | `FineCalculationTests`, `ReturnTests` |
-| BR4 FIFO queue | `ReservationService.Place` (only if no copy Available; one active reservation per member per title); `HoldAllocator` serves the oldest `Waiting` reservation. DB: filtered unique index on active reservations | `ReservationTests`, `HoldTests` |
-| BR5 Hold expiry | `HoldAllocator.AssignCopy` (expiry = return date + 3 opening days), `ReservationService.ProcessHolds` | `HoldTests` |
-| BR6 Held copy protection | `CirculationService.CheckOut` — a copy `OnHold` can only be lent to the member whose reservation holds it | `CheckoutTests` |
-| BR7 Renewal | `Loan.EnsureCanBeRenewed` / `Loan.Renew` (open, not overdue, under the renewal limit) + `CirculationService.Renew` (no `Waiting` reservation for the title) | `RenewalTests` |
+| BR1 Loan limit & period | `MembershipType.EnsureBelowLoanLimit`, `MembershipType.CalculateDueDate`, called by `CirculationService.CheckOut` | `MemberCirculationFineTests`: `CheckoutAllowsLimitAndRejectsNextCopy`, `CheckoutMovesDueDatePastSundayAndHoliday` |
+| BR2 Eligibility | `Member.EnsureCanBorrow` / `GetBorrowingBlock` (card + debt threshold), `FineLedger.GetOutstanding` (unpaid fines + fines accrued to date on overdue loans); used by checkout, renew, reserve | `CheckoutUsesStrictDebtThreshold`, `ExpiryDateIsInclusive`, `AccruingFineCanBlockCheckout`, `RenewalRejectsIneligibleLoan`, `AMemberWhoCannotBorrowCannotReserve` |
+| BR3 Overdue fine | `LibraryCalendar.CountChargeableDays` + `FinePolicy.CalculateFine`; `CirculationService.Return` records the `Fine` | `ReturnCountsOpeningDaysAndAppliesCap`, `AccruingFineIsVisibleButPayableAfterReturn`, `PartialPaymentPaysOldestFineFirstAndUnblocksMember` |
+| BR4 FIFO queue | `ReservationService.Place` (only if no copy Available; one active reservation per member per title); `HoldAllocator` serves the oldest `Waiting` reservation. DB: filtered unique index on active reservations | `ReservationTests`: `MembersJoinTheQueueInOrderAndOnlyOnce`, `ATitleWithACopyOnTheShelfCannotBeReserved`, `ATitleWithOnlyLostCopiesCannotBeReserved` |
+| BR5 Hold expiry | `HoldAllocator.AssignCopy` (expiry = return date + 3 opening days), `ReservationService.ProcessHolds` / `ExpireHoldsAtStartup` | `AReturnedCopyIsHeldForTheFirstMemberForThreeOpeningDays`, `AnUncollectedHoldExpiresAndTheCopyGoesToTheNextMember`, `StartupExpiryReturnsTheCopyToTheShelfWhenNobodyElseWaits` |
+| BR6 Held copy protection | `CirculationService.CheckOut` — a copy `OnHold` can only be lent to the member whose reservation holds it | `ReturnAssignsFirstWaitingMemberAndProtectsTheirHold`, `TheHolderCollectsTheCopyAndTheReservationIsFulfilled` |
+| BR7 Renewal | `Loan.EnsureCanBeRenewed` / `Loan.Renew` (open, not overdue, under the renewal limit) + `CirculationService.Renew` (no `Waiting` reservation for the title). BR7 is checked before BR2, so an overdue loan is refused as overdue | `MemberCanRenewOwnLoanOnceFromExistingDueDate`, `RenewalRejectsIneligibleLoan` (5 cases) |
 
 **Clarifications made during design** (to be confirmed in the librarian interview,
 Appendix A of the proposal):
@@ -137,9 +137,9 @@ Appendix A of the proposal):
 | `AccountService` | UC02 | `GetAccounts`, `CreateStaffAccount`, `UpdateStaffAccount`, `SetLocked`, `ResetPassword` | Admin |
 | `SettingsService` | UC03 | `GetMembershipTypes`, `SaveMembershipType`, `GetFinePolicy`, `UpdateFinePolicy`, `GetHolidays`, `AddHoliday`, `RemoveHoliday`, `Backup`, `Restore` | Admin (reads: Librarian too) |
 | `CatalogueService` | UC04, UC05 | `Search`, `GetTitleDetails`, `SaveTitle`, `SetTitleActive`, `AddCopy`, `ChangeCopyLocation`, `ChangeCopyStatus`, `AddEResource`, `RemoveEResource`, `GetEResourceUrl`, `GetCategories`, `GetPublishers` | search: all; edit: Librarian |
-| `MemberService` | UC06 | `Search`, `GetMember`, `Register`, `Update`, `ExtendCard`, `SetActive`, `ResetPassword`, `GetMyProfile` | Librarian (Member: own profile) |
-| `CirculationService` | UC07–UC09 | `GetMemberSummary`, `CheckOut`, `Return`, `Renew`, `GetOpenLoans`, `GetMyLoans` | Librarian (Member: renew/view own) |
-| `ReservationService` | UC10, UC11 | `Place`, `Cancel`, `GetMyReservations`, `ProcessHolds`, `GetActiveHolds`, `ExpireHoldsAtStartup` (system) | Member (place/cancel); Librarian (holds, cancel) |
+| `MemberService` | UC06 | `Search`, `GetMembershipTypes`, `GetMember`, `Register`, `Update`, `ExtendCard`, `SetActive`, `ResetPassword`, `GetMyProfile` | Librarian (Member: own profile) |
+| `CirculationService` | UC07–UC09 | `GetMemberSummary`, `CheckOut`, `GetReturnPreview` + `Return` (return in two steps: find the loan, then confirm), `Renew`, `GetOpenLoans`, `GetMyLoans` | Librarian (Member: renew/view own) |
+| `ReservationService` | UC10, UC11 | `Place`, `Cancel`, `GetMyReservations`, `GetActiveHolds`, `ProcessHolds` and `ExpireHoldsAtStartup` (system); both return a `HoldProcessingResultDto` (holds expired, copies reassigned, copies released) | Member (place/cancel); Librarian (holds, cancel) |
 | `FineService` | UC12 | `GetMemberFines`, `GetMyFines`, `RecordPayment` | Librarian (Member: own) |
 | `ReportService` | UC13 | `GetAvailableReports`, `Run` | Admin, Librarian |
 
@@ -191,9 +191,10 @@ it. On narrow windows the sidebar collapses to icons. Figure D-4 (`navigation.pn
 
 | Sidebar group | Screen | Use case | Admin | Librarian | Member |
 |---|---|---|:-:|:-:|:-:|
-| Library | Catalogue search (+ Title editor dialog) | UC04, UC05, UC10 | view | ✓ edit | ✓ reserve / open link |
+| Library | Overview (dashboard: totals, overdue items, titles by category, most-reserved titles) | — | ✓ | ✓ | ✓ |
+| | Catalogue search (+ Title editor dialog; list or book-cover view) | UC04, UC05, UC10 | view | ✓ edit | ✓ reserve / open link |
 | Circulation | Check out | UC07 | | ✓ | |
-| | Return | UC08 | | ✓ | |
+| | Return (Find loan → Confirm return) | UC08 | | ✓ | |
 | | Loans & renewals | UC09 | | ✓ | |
 | | Holds | UC11 | | ✓ | |
 | | Fines & payments | UC12 | | ✓ | |
@@ -202,7 +203,7 @@ it. On narrow windows the sidebar collapses to icons. Figure D-4 (`navigation.pn
 | Reports | Reports (+ export to Excel/CSV) | UC13 | ✓ | ✓ | |
 | Administration | User accounts | UC02 | ✓ | | |
 | | Settings: membership types, fine policy, holidays, backup/restore | UC03, NFR-08 | ✓ | | |
-| Sidebar footer | Change password, Log out | UC01 | ✓ | ✓ | ✓ |
+| Sidebar footer | Light / dark theme, Change password, Log out | UC01 | ✓ | ✓ | ✓ |
 
 ### 6.2 UI conventions
 
@@ -230,9 +231,22 @@ it. On narrow windows the sidebar collapses to icons. Figure D-4 (`navigation.pn
 
 ## 7. Testing approach
 
-* **Unit tests (NUnit)** on the business layer with `InMemoryUnitOfWork` and `FixedClock` —
-  61 test cases (48 test methods) covering BR1–BR7, role checks (NFR-04), login lock-out (NFR-05),
-  password hashing (NFR-03), input validation (NFR-06) and the integrity of the sample data.
+* **Unit tests (NUnit)** on the business layer with an in-memory unit of work (`MemoryLibrary`)
+  and a fixed clock — **110 test cases** in `tests/ELibrary.Tests`:
+
+  | Area | Test class | Cases |
+  |---|---|---:|
+  | Members, check out, return, renewal, fines (BR1–BR3, BR6, BR7) | `Circulation/MemberCirculationFineTests` | 30 |
+  | Reservations and holds (BR4–BR6) | `Reservations/ReservationTests` | 12 |
+  | Log-in, lock-out, accounts, roles (UC01, UC02, NFR-04, NFR-05) | `Accounts/AuthAndAccountTests` | 20 |
+  | Membership types, fine policy, holidays, backup (UC03, NFR-08) | `Accounts/SettingsTests` | 13 |
+  | Password hashing (NFR-03) | `Security/Pbkdf2PasswordHasherTests` | 17 |
+  | Password policy | `Security/PasswordPolicyTests` | 18 |
+
+  Catalogue search, title management and reports are covered by the manual acceptance tests.
+* **Regression tests for defects found in testing** — e.g. renewing an overdue loan with a fine
+  above the limit must report BR7 (`RenewalRejectsIneligibleLoan`, case "overdue with a fine above
+  the limit"); the test fails on the code before the fix.
 * **Sample data** is produced by the services themselves (`SampleDataSeeder`), which exercises the
   whole stack against SQL Server on the first start.
 * **Manual acceptance tests** per use case (test-case table in the report: ID, purpose,

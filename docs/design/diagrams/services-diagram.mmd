@@ -27,6 +27,7 @@ classDiagram
   class CirculationService {
     +GetMemberSummary(code)
     +CheckOut(code, barcode) LoanDto
+    +GetReturnPreview(barcode) LoanDto
     +Return(barcode) ReturnReceiptDto
     +Renew(loanId) LoanDto
     +GetOpenLoans(code, overdueOnly)
@@ -36,8 +37,8 @@ classDiagram
     +Place(titleId) ReservationDto
     +Cancel(reservationId)
     +GetMyReservations(includeClosed)
-    +ProcessHolds() ProcessHoldsResultDto
-    +ExpireHoldsAtStartup() int
+    +ProcessHolds() HoldProcessingResultDto
+    +ExpireHoldsAtStartup() HoldProcessingResultDto
     +GetActiveHolds()
   }
   class FineService {
