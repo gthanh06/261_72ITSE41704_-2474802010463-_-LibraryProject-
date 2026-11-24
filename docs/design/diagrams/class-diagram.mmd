@@ -43,6 +43,7 @@ classDiagram
     +DateOnly RegisteredOn
     +bool IsActive
     +IsCardValid(today) bool
+    +GetBorrowingBlock(today, outstanding, policy) string?
     +EnsureCanBorrow(today, outstanding, policy)
     +ExtendCard(newExpiry)
     +LinkAccount(accountId)

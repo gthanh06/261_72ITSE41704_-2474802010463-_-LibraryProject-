@@ -9,7 +9,10 @@ sequenceDiagram
   participant FP as FinePolicy
   participant HA as HoldAllocator
   participant C as Copy
-  L->>UI: enter barcode
+  L->>UI: enter barcode, Find loan
+  UI->>CS: GetReturnPreview(barcode)
+  CS-->>UI: LoanDto (member, title, due date)
+  L->>UI: Confirm return
   UI->>CS: Return(barcode)
   CS->>CS: session.Require(Librarian)
   CS->>UoW: find copy and its open loan

@@ -7,6 +7,15 @@ A Windows desktop application that digitises the circulation of a small library:
 e-resource links, members, check-out, return, renewal, a FIFO reservation queue with hold expiry,
 overdue fines with a cap and holiday exclusions, payments and reports.
 
+Main features of the final version:
+
+* Role-based sidebar (Administrator, Librarian, Member) with keyboard shortcuts and a light / dark theme
+* Overview dashboard: totals, overdue items, titles by category, most-reserved titles
+* Catalogue with list and book-cover views, copies and e-resource links
+* Check out, two-step return (find the loan, then confirm), renewal, FIFO reservations and holds
+* Fines that accrue per opening day (Sundays and holidays excluded, capped), partial payments
+* Reports with export to Excel and CSV; database backup and restore
+
 ## Team
 
 | Member | Student ID | Role and main modules |
@@ -35,11 +44,12 @@ overdue fines with a cap and holiday exclusions, payments and reports.
   ELibrary.Business     services (one per use-case group), repository interfaces, DTOs, reports
   ELibrary.DataAccess   EF Core DbContext, mappings, repositories, sample-data seeder, backup
   ELibrary.WinForms     login, main window, screens, dialogs, Excel export
+                        UI/ = theme, sidebar, grid style, themed controls, toasts
 /tests
   ELibrary.Tests        NUnit tests with an in-memory unit of work and a fixed clock
 /docs
   design/               DESIGN.md + UML, ERD and sequence diagrams (Mermaid source + PNG)
-  database/             generated SQL script (see RUN_GUIDE.md)
+  database/             create_database.sql, generated from the EF Core mappings
 RUN_GUIDE.md            how to install, configure, run and test
 ```
 
@@ -66,8 +76,10 @@ The full procedure, troubleshooting and the test instructions are in [RUN_GUIDE.
 dotnet test
 ```
 
-The tests cover BR1–BR7, role checks (NFR-04), login lock-out (NFR-05), password hashing (NFR-03)
-and input validation (NFR-06).
+110 test cases (NUnit), no SQL Server needed. They cover BR1–BR7, role checks (NFR-04), login
+lock-out (NFR-05), password hashing and password policy (NFR-03), settings and holidays, and input
+validation (NFR-06). Catalogue, reports and the user interface are checked with the manual
+acceptance tests in [RUN_GUIDE.md](RUN_GUIDE.md#6-sample-data--what-to-try).
 
 ## Status
 
@@ -80,4 +92,5 @@ and input validation (NFR-06).
 | M5 Reservations | UC10, UC11 | Implemented |
 | M6 Fines | UC12 | Implemented |
 | M7 Reports | UC13 (+ Excel/CSV export) | Implemented |
+| Extra (beyond the proposal) | Overview dashboard, book-cover view, light/dark theme | Implemented |
 | Stretch goals | Barcode/QR scanning, recommendations | Not started (a USB barcode scanner works as a keyboard on the Check out and Return screens) |
