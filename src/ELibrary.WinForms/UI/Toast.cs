@@ -37,6 +37,12 @@ internal static class Toasts
 
         public void Push(Toast toast)
         {
+            // Repeating the same action shows one toast, not a stack of identical ones.
+            foreach (var same in _toasts.Where(t => t.HasSameContentAs(toast)).ToList())
+            {
+                Remove(same);
+            }
+
             while (_toasts.Count >= MaxVisible)
             {
                 Remove(_toasts[0]);
@@ -92,6 +98,9 @@ internal sealed class Toast : Control
     private Tween? _slide;
     private Tween? _move;
     private bool _closing;
+
+    public bool HasSameContentAs(Toast other) =>
+        _tone == other._tone && _title == other._title && _message == other._message;
 
     public Toast(Tone tone, string title, string? message)
     {
