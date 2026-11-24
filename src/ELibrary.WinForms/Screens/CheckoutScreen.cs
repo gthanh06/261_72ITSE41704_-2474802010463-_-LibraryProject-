@@ -85,6 +85,6 @@ internal sealed class CheckoutScreen : ScreenBase
             : $"{summary.Member.FullName} · {summary.Member.MembershipTypeName} · Card expires {Ui.Date(summary.Member.CardExpiryDate)} · "
               + $"{summary.OpenLoans.Count}/{summary.MaxLoans} on loan · Fines {Ui.Money(summary.OutstandingFines)}";
         _barcode.Enabled = _lend.Enabled = summary != null && summary.BorrowingBlock == null;
-        Ui.Fill(_grid, summary?.OpenLoans ?? Array.Empty<LoanDto>(), LoansScreen.LoanColumns);
+        Ui.Fill(_grid, summary?.OpenLoans ?? Array.Empty<LoanDto>(), LoansScreen.MemberLoanColumns);
     }
 }
