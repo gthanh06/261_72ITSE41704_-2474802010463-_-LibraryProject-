@@ -85,6 +85,11 @@ internal sealed class CheckoutScreen : ScreenBase
             : $"{summary.Member.FullName} · {summary.Member.MembershipTypeName} · Card expires {Ui.Date(summary.Member.CardExpiryDate)} · "
               + $"{summary.OpenLoans.Count}/{summary.MaxLoans} on loan · Fines {Ui.Money(summary.OutstandingFines)}";
         _barcode.Enabled = _lend.Enabled = summary != null && summary.BorrowingBlock == null;
+        GridStyle.SetEmptyState(_grid, Icons.Book,
+            summary == null ? "No member selected" : "No items on loan",
+            summary == null
+                ? "Enter a member code and press Enter to see the member's loans."
+                : $"{summary.Member.MemberCode} has nothing on loan. Scan a copy barcode to check one out.");
         Ui.Fill(_grid, summary?.OpenLoans ?? Array.Empty<LoanDto>(), LoansScreen.MemberLoanColumns);
     }
 }
